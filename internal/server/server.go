@@ -94,14 +94,8 @@ func Start(grpcPort, httpPort string) error {
 	}
 	endpoint := "localhost" + grpcPort
 
-	var docCache cache.DocumentCache
-
-	if os.Getenv("CACHE_ENABLED") == "true" {
-		docCache = cache.NewRedisDocumentCache()
-	}
-
 	// Register the grpc server
-	v1.RegisterDocumentServiceServer(grpcServer, service.NewDocumentService(rdb, docCache))
+	v1.RegisterDocumentServiceServer(grpcServer, service.NewDocumentService(rdb))
 
 	// Register the rest gateway
 	if err = v1.RegisterDocumentServiceHandlerFromEndpoint(context.TODO(), mux, endpoint, opts); err != nil {

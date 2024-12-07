@@ -5,7 +5,6 @@ import (
 	"time"
 
 	v1 "github.com/emrgen/document/apis/v1"
-	"github.com/emrgen/document/internal/cache"
 	"github.com/emrgen/document/internal/compress"
 	"github.com/emrgen/document/internal/model"
 	"github.com/google/uuid"
@@ -21,11 +20,12 @@ var (
 type DocumentService struct {
 	db       *gorm.DB
 	compress compress.Compress
+	// authbac grpc client
 	v1.UnimplementedDocumentServiceServer
 }
 
 // NewDocumentService creates a new DocumentService.
-func NewDocumentService(db *gorm.DB, cache cache.DocumentCache) *DocumentService {
+func NewDocumentService(db *gorm.DB) *DocumentService {
 	service := &DocumentService{
 		db:       db,
 		compress: compress.NewGZip(),
