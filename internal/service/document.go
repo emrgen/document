@@ -2,16 +2,13 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	v1 "github.com/emrgen/document/apis/v1"
 	"github.com/emrgen/document/internal/cache"
 	"github.com/emrgen/document/internal/compress"
 	"github.com/emrgen/document/internal/model"
-	"github.com/emrgen/document/internal/queue"
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gorm.io/gorm"
 )
@@ -24,8 +21,6 @@ var (
 type DocumentService struct {
 	db       *gorm.DB
 	compress compress.Compress
-	cache    cache.DocumentCache
-	queue    queue.DocumentQueue
 	v1.UnimplementedDocumentServiceServer
 }
 
@@ -34,7 +29,6 @@ func NewDocumentService(db *gorm.DB, cache cache.DocumentCache) *DocumentService
 	service := &DocumentService{
 		db:       db,
 		compress: compress.NewGZip(),
-		cache:    cache,
 	}
 
 	return service
@@ -81,11 +75,6 @@ func (d DocumentService) CreateDocument(ctx context.Context, request *v1.CreateD
 		return nil, err
 	}
 
-	err = d.cache.UpdateDocument(ctx, uuid.MustParse(doc.ID), doc)
-	if err != nil {
-		return nil, err
-	}
-
 	return &v1.CreateDocumentResponse{
 		Document: &v1.Document{
 			Id:        doc.ID,
@@ -98,40 +87,6 @@ func (d DocumentService) CreateDocument(ctx context.Context, request *v1.CreateD
 
 // GetDocument retrieves a document.
 func (d DocumentService) GetDocument(ctx context.Context, request *v1.GetDocumentRequest) (*v1.GetDocumentResponse, error) {
-	if d.cache != nil {
-		id, err := uuid.Parse(request.Id)
-		if err != nil {
-			return nil, err
-		}
-
-		// Check cache first before hitting the database
-		doc, err := d.cache.GetDocument(ctx, id, cache.GetDocumentModeView)
-		if err != nil {
-			logrus.Errorf("Error getting document from cache: %v", err)
-		}
-
-		if doc != nil {
-			logrus.Info("Document found in cache service")
-			data, err := json.Marshal(doc.Parts)
-			if err != nil {
-				return nil, err
-			}
-
-			return &v1.GetDocumentResponse{
-				Document: &v1.Document{
-					Id:        doc.ID,
-					Title:     doc.Name,
-					Content:   doc.Content,
-					Data:      string(data),
-					Kind:      &doc.Kind,
-					CreatedAt: timestamppb.New(doc.CreatedAt),
-					UpdatedAt: timestamppb.New(doc.UpdatedAt),
-				},
-			}, nil
-		}
-	}
-
-	logrus.Infof("Document not found in cache: %s", request.Id)
 	// Get document from database
 	doc, err := model.GetDocument(d.db, request.Id)
 	if err != nil {
@@ -141,25 +96,6 @@ func (d DocumentService) GetDocument(ctx context.Context, request *v1.GetDocumen
 	data, err := d.compress.Decode([]byte(doc.Content))
 	if err != nil {
 		return nil, err
-	}
-
-	if d.cache != nil {
-		id, err := uuid.Parse(doc.ID)
-		if err != nil {
-			return nil, err
-		}
-
-		// if user has edit permission, then load in to the update cache
-		err = d.cache.UpdateDocument(ctx, id, doc)
-		if err != nil {
-			return nil, err
-		}
-
-		// if the user has only view permission, then load in to the read cache
-		// err = d.cache.SetDocument(ctx, id, doc)
-		// if err != nil {
-		// 	logrus.Errorf("Error setting document in cache: %v", err)
-		// }
 	}
 
 	return &v1.GetDocumentResponse{
@@ -200,17 +136,6 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 	// current time
 	document.UpdatedAt = time.Now().UTC()
 
-	// Check if cache is enabled
-	if d.cache != nil {
-		// put the updates in a queue to be processed later
-		err := d.queue.PublishChange(ctx, document)
-		if err != nil {
-			return nil, err
-		}
-
-		return response, nil
-	}
-
 	// Update document in database
 	err := model.UpdateDocument(d.db, request.Id, document)
 	if err != nil {
@@ -222,6 +147,15 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 
 // DeleteDocument deletes a document.
 func (d DocumentService) DeleteDocument(ctx context.Context, request *v1.DeleteDocumentRequest) (*v1.DeleteDocumentResponse, error) {
-	//TODO implement me
-	panic("implement me")
+	id, err := uuid.Parse(request.GetId())
+	if err != nil {
+		return nil, err
+	}
+
+	err = model.DeleteDocument(d.db, id.String())
+	if err != nil {
+		return nil, err
+	}
+
+	return &v1.DeleteDocumentResponse{}, nil
 }
