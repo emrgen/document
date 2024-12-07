@@ -8,7 +8,7 @@ import {
     UserServiceApiDeleteUserRequest,
     UserServiceApiGetUserRequest,
     UserServiceApiListUsersRequest, UserServiceApiUpdateUserRequest
-} from "@emrgen/tinydoc-client-gen";
+} from "@emrgen/document-client-gen";
 import type {AxiosInstance} from "axios";
 import axios from "axios";
 
@@ -18,7 +18,7 @@ class Config {
     axios?: AxiosInstance;
 }
 
-class TinydocClient {
+class documentClient {
     user: UserService;
     project: ProjectServiceApi;
     document: DocumentService;

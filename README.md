@@ -1,6 +1,6 @@
-# Tinydoc is a document store for small projects.
+# document is a document store for small projects.
 
-Tinydoc is a document store for small projects. It is designed to be simple and easy to use.
+document is a document store for small projects. It is designed to be simple and easy to use.
 
 ## Features
 

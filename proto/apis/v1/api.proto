@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package apis.v1;
 
-option go_package = "github.com/emrgen/tinydoc/proto/v1";
+option go_package = "github.com/emrgen/document/proto/v1";
 
 import "google/api/annotations.proto";
 import "protoc-gen-openapiv2/options/annotations.proto";

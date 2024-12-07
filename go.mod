@@ -1,4 +1,4 @@
-module github.com/emrgen/tinydoc
+module github.com/emrgen/document
 
 go 1.23.0
 

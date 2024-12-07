@@ -3,7 +3,7 @@ package store
 import (
 	"context"
 
-	"github.com/emrgen/tinydoc/internal/model"
+	"github.com/emrgen/document/internal/model"
 )
 
 type Store interface {

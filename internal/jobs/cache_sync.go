@@ -1,7 +1,7 @@
 package jobs
 
 import (
-	"github.com/emrgen/tinydoc/internal/cache"
+	"github.com/emrgen/document/internal/cache"
 	"gorm.io/gorm"
 )
 

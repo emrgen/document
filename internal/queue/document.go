@@ -3,7 +3,7 @@ package queue
 import (
 	"context"
 
-	"github.com/emrgen/tinydoc/internal/model"
+	"github.com/emrgen/document/internal/model"
 )
 
 var DocumentUpdateCacheQueue = "document:update:queue"

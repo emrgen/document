@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/emrgen/tinydoc/internal/model"
+	"github.com/emrgen/document/internal/model"
 	redis "github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 )

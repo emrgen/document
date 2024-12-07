@@ -3,7 +3,7 @@ package cache
 import (
 	"context"
 
-	"github.com/emrgen/tinydoc/internal/model"
+	"github.com/emrgen/document/internal/model"
 	"github.com/google/uuid"
 )
 

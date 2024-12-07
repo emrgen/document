@@ -1,7 +1,7 @@
 package service
 
 import (
-	"github.com/emrgen/tinydoc/internal/tester"
+	"github.com/emrgen/document/internal/tester"
 	"os"
 	"testing"
 )

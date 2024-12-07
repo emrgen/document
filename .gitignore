@@ -25,7 +25,7 @@ apis/*
 go.k
 
 # firstime-gen-client protobuf files
-clients/ts/tinydoc-client-gen
+clients/ts/document-client-gen
 *.log
 
 .env

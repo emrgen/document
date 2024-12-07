@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/emrgen/tinydoc/cmd"
+	"github.com/emrgen/document/cmd"
 )
 
 func main() {

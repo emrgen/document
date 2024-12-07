@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/emrgen/tinydoc/internal/compress"
-	"github.com/emrgen/tinydoc/internal/model"
+	"github.com/emrgen/document/internal/compress"
+	"github.com/emrgen/document/internal/model"
 	"github.com/google/uuid"
 	redis "github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"

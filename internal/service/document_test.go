@@ -2,8 +2,8 @@ package service
 
 import (
 	"context"
-	v1 "github.com/emrgen/tinydoc/apis/v1"
-	"github.com/emrgen/tinydoc/internal/tester"
+	v1 "github.com/emrgen/document/apis/v1"
+	"github.com/emrgen/document/internal/tester"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )

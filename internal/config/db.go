@@ -17,7 +17,7 @@ func GetDb(config *Config) *gorm.DB {
 	} else {
 		filePath := os.Getenv("SQLITE_FILE_PATH")
 		if filePath == "" {
-			filePath = ".tmp/db/_tinydoc.db"
+			filePath = ".tmp/db/_document.db"
 		}
 
 		rdb, err = gorm.Open(sqlite.Open(filePath), &gorm.Config{})

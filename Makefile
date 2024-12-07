@@ -69,8 +69,8 @@ generate-client: proto
 	@npx openapi-generator-cli generate \
 		-i ./apis/v1/api.swagger.json \
 		-g typescript-axios \
-		-o ./clients/ts/tinydoc-client-gen \
-		--additional-properties=npmName=@emrgen/tinydoc-client-gen,npmVersion=${CLIENT_VERSION},useSingleRequestParameter=true,supportsES6=true,modelPropertyNaming=snake_case,paramNaming=snake_case,enumPropertyNaming=snake_case \
+		-o ./clients/ts/document-client-gen \
+		--additional-properties=npmName=@emrgen/document-client-gen,npmVersion=${CLIENT_VERSION},useSingleRequestParameter=true,supportsES6=true,modelPropertyNaming=snake_case,paramNaming=snake_case,enumPropertyNaming=snake_case \
 		--type-mappings=string=String
 
 	# cd ./clients/firstime-gen-client/ts && yarn

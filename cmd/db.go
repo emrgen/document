@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"github.com/emrgen/tinydoc/internal/config"
-	"github.com/emrgen/tinydoc/internal/model"
+	"github.com/emrgen/document/internal/config"
+	"github.com/emrgen/document/internal/model"
 	"github.com/spf13/cobra"
 )
 

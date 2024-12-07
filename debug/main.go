@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/emrgen/tinydoc/internal/server"
+	"github.com/emrgen/document/internal/server"
 	"os"
 )
 

@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/emrgen/tinydoc/internal/server"
+	"github.com/emrgen/document/internal/server"
 	"github.com/sirupsen/logrus"
 
 	"github.com/spf13/cobra"

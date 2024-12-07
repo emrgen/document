@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
-	"github.com/emrgen/tinydoc/internal/model"
+	"github.com/emrgen/document/internal/model"
 )
 
 type Kafka struct {

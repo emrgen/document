@@ -1,7 +1,7 @@
 package tester
 
 import (
-	"github.com/emrgen/tinydoc/internal/model"
+	"github.com/emrgen/document/internal/model"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"os"
@@ -25,7 +25,7 @@ func Setup() {
 		panic(err)
 	}
 
-	db, err = gorm.Open(sqlite.Open(testPath+"db/tinydoc.db"), &gorm.Config{})
+	db, err = gorm.Open(sqlite.Open(testPath+"db/document.db"), &gorm.Config{})
 	if err != nil {
 		panic(err)
 	}
