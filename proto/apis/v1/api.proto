@@ -1,0 +1,132 @@
+syntax = "proto3";
+
+package apis.v1;
+
+option go_package = "github.com/emrgen/tinydoc/proto/v1";
+
+import "google/api/annotations.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+import "google/protobuf/timestamp.proto";
+import "validate/validate.proto";
+
+// Document
+message Document {
+  string id = 1 [(validate.rules).string.uuid = true];
+  string title = 2;
+  string content = 3;
+  string data = 4;
+  optional string kind = 5; // default: treated as text
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+message CreateDocumentRequest {
+  optional string id = 1 [(validate.rules).string.uuid = true];
+  string title = 2;
+  string content = 3;
+  string project_id = 4 [(validate.rules).string.uuid = true];
+}
+
+message CreateDocumentResponse {
+  Document document = 1;
+}
+
+message GetDocumentRequest {
+  string id = 1 [(validate.rules).string.uuid = true];
+}
+
+message GetDocumentResponse {
+  Document document = 1;
+}
+
+message ListDocumentsRequest {
+  int32 page = 1;
+  int32 per_page = 2;
+}
+
+message ListDocumentsResponse {
+  repeated Document documents = 1;
+  int32 total = 2;
+}
+
+message UpdateDocumentRequest {
+  string id = 1 [(validate.rules).string.uuid = true];
+  optional string title = 2;
+  optional string content = 3;
+  repeated string parts = 4;
+  int64 version = 5;
+}
+
+message UpdateDocumentResponse {
+  Document document = 1;
+}
+
+message DeleteDocumentRequest {
+  string id = 1 [(validate.rules).string.uuid = true];
+}
+
+message DeleteDocumentResponse {
+  Document document = 1;
+}
+
+service DocumentService {
+  rpc CreateDocument(CreateDocumentRequest) returns (CreateDocumentResponse) {
+    option (google.api.http) = {
+      post: "/v1/documents"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Create a document"
+      description: "Create a document"
+      operation_id: "CreateDocument"
+    };
+  }
+
+  rpc GetDocument(GetDocumentRequest) returns (GetDocumentResponse) {
+    option (google.api.http) = {
+      get: "/v1/documents/{id}"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get a document"
+      description: "Get a document"
+      operation_id: "GetDocument"
+    };
+  }
+
+  rpc ListDocuments(ListDocumentsRequest) returns (ListDocumentsResponse) {
+    option (google.api.http) = {
+      get: "/v1/documents"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "List documents"
+      description: "List documents"
+      operation_id: "ListDocuments"
+    };
+  }
+
+  rpc UpdateDocument(UpdateDocumentRequest) returns (UpdateDocumentResponse) {
+    option (google.api.http) = {
+      put: "/v1/documents/{id}"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Update a document"
+      description: "Update a document"
+      operation_id: "UpdateDocument"
+    };
+  }
+
+  rpc DeleteDocument(DeleteDocumentRequest) returns (DeleteDocumentResponse) {
+    option (google.api.http) = {
+      delete: "/v1/documents/{id}"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Delete a document"
+      description: "Delete a document"
+      operation_id: "DeleteDocument"
+    };
+  }
+}
+
+
+
