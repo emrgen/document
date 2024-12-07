@@ -13,9 +13,7 @@ import (
 
 	gatewayfile "github.com/black-06/grpc-gateway-file"
 	v1 "github.com/emrgen/document/apis/v1"
-	"github.com/emrgen/document/internal/cache"
 	"github.com/emrgen/document/internal/config"
-	"github.com/emrgen/document/internal/jobs"
 	"github.com/emrgen/document/internal/service"
 	"github.com/gobuffalo/packr"
 	grpcmiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -146,16 +144,6 @@ func Start(grpcPort, httpPort string) error {
 			logrus.Infof("grpc failed to start: %v", err)
 		}
 		logrus.Infof("grpc server stopped")
-	}()
-
-	syncDocTask := jobs.NewCacheSyncTask("@every 20s", rdb, docCache)
-
-	// Start the cache sync task
-	runner := jobs.NewTaskExecutor([]jobs.Job{}, []jobs.CronJob{syncDocTask})
-	runner.Run()
-	defer func() {
-		logrus.Info("stopping cache sync task")
-		runner.Stop()
 	}()
 
 	time.Sleep(1 * time.Second)
