@@ -4,8 +4,8 @@ tmp_dir = "bin"
 
 [build]
   args_bin = ["serve"]
-  bin = "./bin/airtdoc"
-  cmd = "go build -o ./bin/airtdoc ./main.go"
+  bin = "./bin/doc"
+  cmd = "go build -o ./bin/doc ./main.go"
   delay = 1000
   exclude_dir = ["assets", "tmp", "vendor", "testdata"]
   exclude_file = []
