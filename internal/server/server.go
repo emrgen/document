@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/emrgen/document/internal/module"
+	"github.com/emrgen/authbac/token"
 	"net"
 	"net/http"
 	"os"
@@ -66,12 +66,10 @@ func Start(grpcPort, httpPort string) error {
 		return err
 	}
 
-	tokenService := NewNullTokenService()
-
 	grpcServer := grpc.NewServer(
 		grpc.UnaryInterceptor(grpcmiddleware.ChainUnaryServer(
 			grpcvalidator.UnaryServerInterceptor(),
-			module.UnaryServerAuthTokenInterceptor(tokenService),
+			token.UnaryServerInterceptor(token.NewNullTokenService()),
 		)),
 	)
 
@@ -97,7 +95,10 @@ func Start(grpcPort, httpPort string) error {
 	endpoint := "localhost" + grpcPort
 
 	// create token service client
-	authTokenService, err := NewTokenServiceClient()
+	authTokenService, err := token.NewTokenServiceClient()
+	if err != nil {
+		return err
+	}
 	// Register the grpc server
 	v1.RegisterDocumentServiceServer(grpcServer, service.NewDocumentService(rdb, authTokenService))
 

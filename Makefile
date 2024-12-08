@@ -80,3 +80,7 @@ generate-docs:
 	@npx @redocly/cli build-docs ./apis/v1/api.swagger.json --output ./docs/v1/index.html
 
 client: generate-client generate-docs
+
+
+build-image:
+	docker build -t document:latest .
