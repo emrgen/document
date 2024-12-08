@@ -9,6 +9,5 @@ import (
 func TestMain(m *testing.M) {
 	tester.Setup()
 	code := m.Run()
-
 	os.Exit(code)
 }

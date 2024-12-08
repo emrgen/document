@@ -1,10 +1,11 @@
 package tester
 
 import (
+	"os"
+
 	"github.com/emrgen/document/internal/model"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"os"
 )
 
 const (

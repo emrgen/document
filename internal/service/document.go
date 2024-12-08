@@ -95,7 +95,7 @@ func (d DocumentService) CreateDocument(ctx context.Context, request *v1.CreateD
 func (d DocumentService) GetDocument(ctx context.Context, request *v1.GetDocumentRequest) (*v1.GetDocumentResponse, error) {
 	id := uuid.MustParse(request.GetId())
 	// check if the project has access to the document
-	if err := d.verifyDocumentPermission(ctx, id, "reader"); err != nil {
+	if err := d.verifyDocumentPermission(ctx, id, "viewer"); err != nil {
 		return nil, err
 	}
 
@@ -138,7 +138,7 @@ func (d DocumentService) ListDocuments(ctx context.Context, request *v1.ListDocu
 func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateDocumentRequest) (*v1.UpdateDocumentResponse, error) {
 	id := uuid.MustParse(request.GetId())
 	// check if the project has access to the document
-	if err := d.verifyDocumentPermission(ctx, id, "reader"); err != nil {
+	if err := d.verifyDocumentPermission(ctx, id, "editor"); err != nil {
 		return nil, err
 	}
 
@@ -206,7 +206,7 @@ func (d DocumentService) verifyDocumentPermission(ctx context.Context, docID uui
 			ObjectType: "document",
 			ObjectId:   docID.String(),
 		},
-		Permission: "reader",
+		Permission: permission,
 		Subject: &spdb.SubjectReference{
 			Object: &spdb.ObjectReference{
 				ObjectType: "project",
