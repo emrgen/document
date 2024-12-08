@@ -40,5 +40,6 @@ func NewNullTokenService() *NullTokenService {
 }
 
 func (t NullTokenService) VerifyProjectAccess(ctx context.Context, token string) (bool, error) {
+	logrus.Infof("null token service: %v", token)
 	return true, nil
 }
