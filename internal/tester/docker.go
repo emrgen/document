@@ -1,8 +1,11 @@
 package tester
 
 import (
+	"github.com/emrgen/document/internal/model"
 	"github.com/ory/dockertest/v3"
 	"github.com/sirupsen/logrus"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 func SetupDocker() (func(), error) {
@@ -18,7 +21,7 @@ func SetupDocker() (func(), error) {
 	}
 
 	// run database
-	db, err := pool.Run("postgres", "9.6", []string{
+	database, err := pool.Run("postgres", "9.6", []string{
 		"POSTGRES_USER=emrgen",
 		"POSTGRES_PASSWORD=emrgen",
 		"POSTGRES_DB=emrgen",
@@ -28,8 +31,13 @@ func SetupDocker() (func(), error) {
 	}
 
 	// run spicedb migrate
-	migrate, err := pool.Run("spicedb", "latest", []string{
-		"DATABASE_URL=postgres://emrgen:emrgen@localhost:5432/emrgen?sslmode=disable",
+	migrate, err := pool.RunWithOptions(&dockertest.RunOptions{
+		Env: []string{
+			"SPICEDB_DATASTORE_ENGINE=postgres",
+			"SPICEDB_DATASTORE_CONN_URI=postgres://emrgen:emrgen@localhost:5432/emrgen?sslmode=disable",
+		},
+		Repository: "spicedb",
+		Tag:        "latest",
 	})
 	if err != nil {
 		logrus.Fatalf("Could not start resource: %s", err)
@@ -78,12 +86,19 @@ func SetupDocker() (func(), error) {
 		logrus.Fatalf("Could not start resource: %s", err)
 	}
 
-	purge := func() {
-		if err := pool.Purge(db); err != nil {
-			logrus.Fatalf("Could not purge resource: %s", err)
-		}
+	// migrate authbac
+	db, err := gorm.Open(postgres.Open("postgres://emrgen:emrgen@localhost:5432/emrgen?sslmode=disable"), &gorm.Config{})
+	if err != nil {
+		logrus.Fatalf("Could not connect to database: %s", err)
+	}
 
-		if err := pool.Purge(authbac); err != nil {
+	err = model.Migrate(db)
+	if err != nil {
+		logrus.Fatalf("Could not migrate database: %s", err)
+	}
+
+	purge := func() {
+		if err := pool.Purge(database); err != nil {
 			logrus.Fatalf("Could not purge resource: %s", err)
 		}
 
@@ -91,7 +106,21 @@ func SetupDocker() (func(), error) {
 			logrus.Fatalf("Could not purge resource: %s", err)
 		}
 
+		if err := pool.Purge(authbac); err != nil {
+			logrus.Fatalf("Could not purge resource: %s", err)
+		}
 	}
 
 	return purge, nil
+}
+
+func Cleanup() error {
+	db, err := gorm.Open(postgres.Open("postgres://emrgen:emrgen@localhost:5432/emrgen?sslmode=disable"), &gorm.Config{})
+	if err != nil {
+		return err
+	}
+
+	db.Exec("DELETE * FROM users")
+
+	return nil
 }
