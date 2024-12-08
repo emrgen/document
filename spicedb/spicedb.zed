@@ -1,0 +1,9 @@
+# NOTE: depends on authbac spicedb schema
+# import and add here!
+
+definition document {
+    relation parent: project
+
+    permission editor = parent->editor
+    permission viewer = parent->viewer
+}

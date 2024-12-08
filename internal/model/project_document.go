@@ -1,6 +1,9 @@
 package model
 
-import "gorm.io/gorm"
+import (
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+)
 
 type ProjectDocument struct {
 	gorm.Model
@@ -11,4 +14,14 @@ type ProjectDocument struct {
 
 func CreateProjectDocument(db *gorm.DB, projectDocument *ProjectDocument) error {
 	return db.Create(projectDocument).Error
+}
+
+func GetDocumentProjectID(db *gorm.DB, documentID string) (uuid.UUID, error) {
+	projectDocument := &ProjectDocument{}
+	err := db.Where("document_id = ?", documentID).First(projectDocument).Error
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return uuid.MustParse(projectDocument.ProjectID), nil
 }

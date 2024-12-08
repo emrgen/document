@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	spdb "github.com/authzed/authzed-go/proto/authzed/api/v1"
 	"time"
 
 	v1 "github.com/emrgen/document/apis/v1"
@@ -20,13 +21,15 @@ var (
 type DocumentService struct {
 	db       *gorm.DB
 	compress compress.Compress
+	perm     spdb.PermissionsServiceClient
 	v1.UnimplementedDocumentServiceServer
 }
 
 // NewDocumentService creates a new DocumentService.
-func NewDocumentService(db *gorm.DB) *DocumentService {
+func NewDocumentService(db *gorm.DB, client spdb.PermissionsServiceClient) *DocumentService {
 	service := &DocumentService{
 		db:       db,
+		perm:     client,
 		compress: compress.NewGZip(),
 	}
 
@@ -86,10 +89,11 @@ func (d DocumentService) CreateDocument(ctx context.Context, request *v1.CreateD
 
 // GetDocument retrieves a document.
 func (d DocumentService) GetDocument(ctx context.Context, request *v1.GetDocumentRequest) (*v1.GetDocumentResponse, error) {
-	//token := ctx.Value("ACCESS_TOKEN")
-	//if token == nil {
-	//	return nil, errors.New("access token not found")
-	//}
+	id := uuid.MustParse(request.GetId())
+	// check if the project has access to the document
+	if err := d.verifyDocumentPermission(ctx, id, "reader"); err != nil {
+		return nil, err
+	}
 
 	// Get document from database
 	doc, err := model.GetDocument(d.db, request.Id)
@@ -128,6 +132,12 @@ func (d DocumentService) ListDocuments(ctx context.Context, request *v1.ListDocu
 
 // UpdateDocument updates a document.
 func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateDocumentRequest) (*v1.UpdateDocumentResponse, error) {
+	id := uuid.MustParse(request.GetId())
+	// check if the project has access to the document
+	if err := d.verifyDocumentPermission(ctx, id, "reader"); err != nil {
+		return nil, err
+	}
+
 	document := &model.Document{
 		ID:      request.Id,
 		Name:    request.GetTitle(),
@@ -158,15 +168,42 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 
 // DeleteDocument deletes a document.
 func (d DocumentService) DeleteDocument(ctx context.Context, request *v1.DeleteDocumentRequest) (*v1.DeleteDocumentResponse, error) {
-	id, err := uuid.Parse(request.GetId())
-	if err != nil {
+	id := uuid.MustParse(request.GetId())
+	// check if the project has access to the document
+	if err := d.verifyDocumentPermission(ctx, id, "reader"); err != nil {
 		return nil, err
 	}
 
-	err = model.DeleteDocument(d.db, id.String())
+	err := model.DeleteDocument(d.db, id.String())
 	if err != nil {
 		return nil, err
 	}
 
 	return &v1.DeleteDocumentResponse{}, nil
+}
+
+// verify if the project has the required permission on the document
+func (d DocumentService) verifyDocumentPermission(ctx context.Context, docID uuid.UUID, permission string) error {
+	// TODO: cache the document -> projectID mapping in redis
+	// this cache will be always consistent because the document cannot move between projects
+	projectID, err := model.GetDocumentProjectID(d.db, docID.String())
+	if err != nil {
+		return err
+	}
+
+	_, err = d.perm.CheckPermission(ctx, &spdb.CheckPermissionRequest{
+		Resource: &spdb.ObjectReference{
+			ObjectType: "document",
+			ObjectId:   docID.String(),
+		},
+		Permission: "reader",
+		Subject: &spdb.SubjectReference{
+			Object: &spdb.ObjectReference{
+				ObjectType: "project",
+				ObjectId:   projectID.String(),
+			},
+		},
+	})
+
+	return err
 }

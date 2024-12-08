@@ -13,7 +13,7 @@ const (
 	authorization = "authorization"
 )
 
-func UnaryServerAuthTokenInterceptor(verifyToken spicedb.PermissionService) grpc.UnaryServerInterceptor {
+func UnaryServerAuthTokenInterceptor(verifyToken spicedb.TokenService) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
 		accessToken, err := accessTokenFromHeader(ctx, authorization)
 		if err != nil {

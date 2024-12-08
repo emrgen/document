@@ -4,6 +4,7 @@ go 1.23.0
 
 require (
 	github.com/andybalholm/brotli v1.1.1
+	github.com/authzed/authzed-go v1.2.0
 	github.com/black-06/grpc-gateway-file v0.1.2
 	github.com/confluentinc/confluent-kafka-go v1.9.2
 	github.com/deckarep/golang-set/v2 v2.6.0
@@ -46,6 +47,7 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/mattn/go-sqlite3 v1.14.24 // indirect
+	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rogpeppe/go-internal v1.13.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect

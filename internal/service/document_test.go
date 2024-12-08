@@ -12,9 +12,7 @@ import (
 func Test_CreateDocument(t *testing.T) {
 	defer tester.CleanUp()
 
-	userService := NewUserService(tester.TestDB())
-	projectService := NewProjectService(tester.TestDB())
-	docService := NewDocumentService(tester.TestDB())
+	docService := NewDocumentService(tester.TestDB(), nil)
 
 	userCreate, err := userService.CreateUser(context.TODO(), &v1.CreateUserRequest{
 		Name:  "sm",
@@ -52,7 +50,7 @@ func Test_UpdateDocument(t *testing.T) {
 	doc, err := setupDocument(project.Id, user.Id, "new document")
 	assert.NoError(t, err)
 
-	docService := NewDocumentService(tester.TestDB())
+	docService := NewDocumentService(tester.TestDB(), nil)
 	title := "updated document"
 	content := "updated content"
 	docUpdate, err := docService.UpdateDocument(context.TODO(), &v1.UpdateDocumentRequest{

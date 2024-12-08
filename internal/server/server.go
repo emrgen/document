@@ -96,8 +96,10 @@ func Start(grpcPort, httpPort string) error {
 	}
 	endpoint := "localhost" + grpcPort
 
+	// create token service client
+	authTokenService, err := NewTokenServiceClient()
 	// Register the grpc server
-	v1.RegisterDocumentServiceServer(grpcServer, service.NewDocumentService(rdb))
+	v1.RegisterDocumentServiceServer(grpcServer, service.NewDocumentService(rdb, authTokenService))
 
 	// Register the rest gateway
 	if err = v1.RegisterDocumentServiceHandlerFromEndpoint(context.TODO(), mux, endpoint, opts); err != nil {

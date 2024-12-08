@@ -2,12 +2,13 @@ package server
 
 import (
 	"context"
+	spdb "github.com/authzed/authzed-go/proto/authzed/api/v1"
 	authv1 "github.com/emrgen/authbac/apis/v1"
 	"github.com/emrgen/authbac/spicedb"
 	"github.com/sirupsen/logrus"
 )
 
-var _ spicedb.PermissionService = (*TokenService)(nil)
+var _ spicedb.TokenService = (*TokenService)(nil)
 
 type TokenService struct {
 	auth authv1.AccessTokenServiceClient
@@ -33,7 +34,7 @@ func (t TokenService) VerifyProjectAccess(ctx context.Context, token string) (bo
 
 type NullTokenService struct{}
 
-var _ spicedb.PermissionService = NullTokenService{}
+var _ spicedb.TokenService = NullTokenService{}
 
 func NewNullTokenService() *NullTokenService {
 	return &NullTokenService{}
@@ -42,4 +43,8 @@ func NewNullTokenService() *NullTokenService {
 func (t NullTokenService) VerifyProjectAccess(ctx context.Context, token string) (bool, error) {
 	logrus.Infof("null token service: %v", token)
 	return true, nil
+}
+
+func NewTokenServiceClient() (spdb.PermissionsServiceClient, error) {
+	panic("not implemented")
 }
