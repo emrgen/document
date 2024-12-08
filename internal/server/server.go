@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/emrgen/authbac/token"
 	"net"
 	"net/http"
 	"os"
@@ -12,8 +11,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/emrgen/authbac/token"
+
 	gatewayfile "github.com/black-06/grpc-gateway-file"
 	v1 "github.com/emrgen/document/apis/v1"
+	"github.com/emrgen/document/internal/cache"
 	"github.com/emrgen/document/internal/config"
 	"github.com/emrgen/document/internal/service"
 	"github.com/gobuffalo/packr"
@@ -99,8 +101,13 @@ func Start(grpcPort, httpPort string) error {
 	if err != nil {
 		return err
 	}
+	redis, err := cache.NewRedis()
+	if err != nil {
+		return err
+	}
+
 	// Register the grpc server
-	v1.RegisterDocumentServiceServer(grpcServer, service.NewDocumentService(rdb, authTokenService))
+	v1.RegisterDocumentServiceServer(grpcServer, service.NewDocumentService(rdb, redis, authTokenService))
 
 	// Register the rest gateway
 	if err = v1.RegisterDocumentServiceHandlerFromEndpoint(context.TODO(), mux, endpoint, opts); err != nil {

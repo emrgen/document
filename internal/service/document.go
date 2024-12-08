@@ -2,10 +2,12 @@ package service
 
 import (
 	"context"
-	spdb "github.com/authzed/authzed-go/proto/authzed/api/v1"
 	"time"
 
+	spdb "github.com/authzed/authzed-go/proto/authzed/api/v1"
+
 	v1 "github.com/emrgen/document/apis/v1"
+	"github.com/emrgen/document/internal/cache"
 	"github.com/emrgen/document/internal/compress"
 	"github.com/emrgen/document/internal/model"
 	"github.com/google/uuid"
@@ -22,14 +24,16 @@ type DocumentService struct {
 	db       *gorm.DB
 	compress compress.Compress
 	perm     spdb.PermissionsServiceClient
+	redis    *cache.Redis
 	v1.UnimplementedDocumentServiceServer
 }
 
 // NewDocumentService creates a new DocumentService.
-func NewDocumentService(db *gorm.DB, client spdb.PermissionsServiceClient) *DocumentService {
+func NewDocumentService(db *gorm.DB, redis *cache.Redis, client spdb.PermissionsServiceClient) *DocumentService {
 	service := &DocumentService{
 		db:       db,
 		perm:     client,
+		redis:    redis,
 		compress: compress.NewGZip(),
 	}
 
@@ -184,11 +188,17 @@ func (d DocumentService) DeleteDocument(ctx context.Context, request *v1.DeleteD
 
 // verify if the project has the required permission on the document
 func (d DocumentService) verifyDocumentPermission(ctx context.Context, docID uuid.UUID, permission string) error {
-	// TODO: cache the document -> projectID mapping in redis
 	// this cache will be always consistent because the document cannot move between projects
-	projectID, err := model.GetDocumentProjectID(d.db, docID.String())
-	if err != nil {
-		return err
+	var projectID uuid.UUID
+	res, err := d.redis.Get(ctx, docID.String())
+	if err == nil {
+		projectID = uuid.MustParse(res.(string))
+	} else {
+		projectID, err = model.GetDocumentProjectID(d.db, docID.String())
+		if err != nil {
+			return err
+		}
+		d.redis.Set(ctx, docID.String(), projectID.String(), time.Hour)
 	}
 
 	_, err = d.perm.CheckPermission(ctx, &spdb.CheckPermissionRequest{
