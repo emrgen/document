@@ -24,7 +24,8 @@ message CreateDocumentRequest {
   optional string id = 1 [(validate.rules).string.uuid = true];
   string title = 2;
   string content = 3;
-  string project_id = 4 [(validate.rules).string.uuid = true];
+  string parts = 4;
+  string project_id = 5 [(validate.rules).string.uuid = true];
 }
 
 message CreateDocumentResponse {
@@ -40,8 +41,9 @@ message GetDocumentResponse {
 }
 
 message ListDocumentsRequest {
-  int32 page = 1;
-  int32 per_page = 2;
+  string project_id = 1 [(validate.rules).string.uuid = true];
+  int32 page = 5;
+  int32 per_page = 6;
 }
 
 message ListDocumentsResponse {

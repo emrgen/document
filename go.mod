@@ -7,6 +7,7 @@ require (
 	github.com/black-06/grpc-gateway-file v0.1.2
 	github.com/confluentinc/confluent-kafka-go v1.9.2
 	github.com/deckarep/golang-set/v2 v2.6.0
+	github.com/emrgen/authbac v0.0.0-00010101000000-000000000000
 	github.com/envoyproxy/protoc-gen-validate v1.1.0
 	github.com/gobuffalo/packr v1.30.1
 	github.com/google/uuid v1.6.0
@@ -19,7 +20,7 @@ require (
 	github.com/rs/cors v1.11.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.1
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	golang.org/x/sys v0.27.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20241118233622-e639e219e697
 	google.golang.org/grpc v1.68.0
@@ -28,6 +29,8 @@ require (
 	gorm.io/driver/sqlite v1.5.6
 	gorm.io/gorm v1.25.12
 )
+
+replace github.com/emrgen/authbac => ../authbac
 
 require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect

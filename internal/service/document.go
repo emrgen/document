@@ -20,7 +20,6 @@ var (
 type DocumentService struct {
 	db       *gorm.DB
 	compress compress.Compress
-	// authbac grpc client
 	v1.UnimplementedDocumentServiceServer
 }
 
@@ -87,6 +86,11 @@ func (d DocumentService) CreateDocument(ctx context.Context, request *v1.CreateD
 
 // GetDocument retrieves a document.
 func (d DocumentService) GetDocument(ctx context.Context, request *v1.GetDocumentRequest) (*v1.GetDocumentResponse, error) {
+	//token := ctx.Value("ACCESS_TOKEN")
+	//if token == nil {
+	//	return nil, errors.New("access token not found")
+	//}
+
 	// Get document from database
 	doc, err := model.GetDocument(d.db, request.Id)
 	if err != nil {
@@ -111,8 +115,15 @@ func (d DocumentService) GetDocument(ctx context.Context, request *v1.GetDocumen
 
 // ListDocuments lists documents.
 func (d DocumentService) ListDocuments(ctx context.Context, request *v1.ListDocumentsRequest) (*v1.ListDocumentsResponse, error) {
-	//TODO implement me
-	panic("implement me")
+	_, err := uuid.Parse(request.ProjectId)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get documents from database
+	//docs, err := d.db.ListDocuments(projectID)
+
+	return nil, err
 }
 
 // UpdateDocument updates a document.

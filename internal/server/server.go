@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/emrgen/document/internal/module"
 	"net"
 	"net/http"
 	"os"
@@ -65,9 +66,12 @@ func Start(grpcPort, httpPort string) error {
 		return err
 	}
 
+	tokenService := NewNullTokenService()
+
 	grpcServer := grpc.NewServer(
 		grpc.UnaryInterceptor(grpcmiddleware.ChainUnaryServer(
 			grpcvalidator.UnaryServerInterceptor(),
+			module.UnaryServerAuthTokenInterceptor(tokenService),
 		)),
 	)
 
