@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/emrgen/document/internal/tester"
-	"gorm.io/gorm"
 )
 
 func TestMain(m *testing.M) {

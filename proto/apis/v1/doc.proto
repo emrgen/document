@@ -8,6 +8,7 @@ import "google/api/annotations.proto";
 import "protoc-gen-openapiv2/options/annotations.proto";
 import "google/protobuf/timestamp.proto";
 import "validate/validate.proto";
+import "google/protobuf/descriptor.proto";
 
 // Document
 message Document {
@@ -20,12 +21,18 @@ message Document {
   google.protobuf.Timestamp updated_at = 7;
 }
 
+extend google.protobuf.MessageOptions {
+  optional bool authenticate = 51000;
+}
+
 message CreateDocumentRequest {
   optional string id = 1 [(validate.rules).string.uuid = true];
   string title = 2;
   string content = 3;
   string parts = 4;
   string project_id = 5 [(validate.rules).string.uuid = true];
+
+  option (authenticate) = true;
 }
 
 message CreateDocumentResponse {
