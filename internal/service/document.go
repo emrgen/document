@@ -2,10 +2,7 @@ package service
 
 import (
 	"context"
-	"time"
-
-	spdb "github.com/authzed/authzed-go/proto/authzed/api/v1"
-
+	"errors"
 	v1 "github.com/emrgen/document/apis/v1"
 	"github.com/emrgen/document/internal/cache"
 	"github.com/emrgen/document/internal/compress"
@@ -23,16 +20,14 @@ var (
 type DocumentService struct {
 	db       *gorm.DB
 	compress compress.Compress
-	perm     spdb.PermissionsServiceClient
 	redis    *cache.Redis
 	v1.UnimplementedDocumentServiceServer
 }
 
 // NewDocumentService creates a new DocumentService.
-func NewDocumentService(db *gorm.DB, redis *cache.Redis, client spdb.PermissionsServiceClient) *DocumentService {
+func NewDocumentService(db *gorm.DB, redis *cache.Redis) *DocumentService {
 	service := &DocumentService{
 		db:       db,
-		perm:     client,
 		redis:    redis,
 		compress: compress.NewGZip(),
 	}
@@ -42,6 +37,7 @@ func NewDocumentService(db *gorm.DB, redis *cache.Redis, client spdb.Permissions
 
 // CreateDocument creates a new document.
 func (d DocumentService) CreateDocument(ctx context.Context, request *v1.CreateDocumentRequest) (*v1.CreateDocumentResponse, error) {
+	// TODO: check the user has access to the project
 	doc := &model.Document{
 		ProjectID: request.GetProjectId(),
 	}
@@ -152,32 +148,55 @@ func (d DocumentService) ListDocuments(ctx context.Context, request *v1.ListDocu
 
 // UpdateDocument updates a document.
 func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateDocumentRequest) (*v1.UpdateDocumentResponse, error) {
-	document := &model.Document{
-		ID:      request.Id,
-		Name:    request.GetTitle(),
-		Content: request.GetContent(),
-		Parts:   request.GetParts(),
-		Version: request.GetVersion(),
-	}
+	err := d.db.Transaction(func(tx *gorm.DB) error {
+		// Get document from database
+		doc, err := model.GetDocument(d.db, request.Id)
+		if err != nil {
+			return err
+		}
 
-	response := &v1.UpdateDocumentResponse{
-		Document: &v1.Document{
-			Id:        request.Id,
-			CreatedAt: timestamppb.New(document.CreatedAt),
-			UpdatedAt: timestamppb.New(document.UpdatedAt),
-		},
-	}
+		if doc.Version+1 != request.GetVersion() {
+			return errors.New("document version mismatch")
+		}
 
-	// current time
-	document.UpdatedAt = time.Now().UTC()
+		// Update document in database
+		if request.Title != nil {
+			doc.Name = request.GetTitle()
+		}
 
-	// Update document in database
-	err := model.UpdateDocument(d.db, request.Id, document)
+		if request.Content != nil {
+			data, err := d.compress.Encode([]byte(request.GetContent()))
+			if err != nil {
+				return err
+			}
+			doc.Content = string(data)
+
+			if request.Parts != nil {
+				doc.Parts = request.GetParts()
+			}
+
+			doc.Version = request.GetVersion()
+		} else {
+			doc.Parts = append(doc.Parts, request.GetParts()...)
+			doc.Version = request.GetVersion()
+		}
+
+		err = model.UpdateDocument(d.db, request.Id, doc)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	return response, nil
+	return &v1.UpdateDocumentResponse{
+		Id:      request.Id,
+		Title:   request.GetTitle(),
+		Version: uint32(request.GetVersion()),
+	}, nil
 }
 
 // DeleteDocument deletes a document.

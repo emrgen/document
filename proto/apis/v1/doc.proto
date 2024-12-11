@@ -67,7 +67,9 @@ message UpdateDocumentRequest {
 }
 
 message UpdateDocumentResponse {
-  Document document = 1;
+  string id = 1 [(validate.rules).string.uuid = true];
+  string title = 2;
+  uint32 version = 3;
 }
 
 message DeleteDocumentRequest {

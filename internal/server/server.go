@@ -11,8 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/emrgen/authbac/token"
-
 	gatewayfile "github.com/black-06/grpc-gateway-file"
 	v1 "github.com/emrgen/document/apis/v1"
 	"github.com/emrgen/document/internal/cache"
@@ -71,7 +69,7 @@ func Start(grpcPort, httpPort string) error {
 	grpcServer := grpc.NewServer(
 		grpc.UnaryInterceptor(grpcmiddleware.ChainUnaryServer(
 			grpcvalidator.UnaryServerInterceptor(),
-			token.UnaryServerInterceptor(token.NewNullTokenService()),
+			//token.UnaryServerInterceptor(token.NewNullTokenService()),
 		)),
 	)
 
@@ -97,17 +95,13 @@ func Start(grpcPort, httpPort string) error {
 	endpoint := "localhost" + grpcPort
 
 	// create token service client
-	authTokenService, err := token.NewTokenServiceClient()
-	if err != nil {
-		return err
-	}
 	redis, err := cache.NewRedis()
 	if err != nil {
 		return err
 	}
 
 	// Register the grpc server
-	v1.RegisterDocumentServiceServer(grpcServer, service.NewDocumentService(rdb, redis, authTokenService))
+	v1.RegisterDocumentServiceServer(grpcServer, service.NewDocumentService(rdb, redis))
 
 	// Register the rest gateway
 	if err = v1.RegisterDocumentServiceHandlerFromEndpoint(context.TODO(), mux, endpoint, opts); err != nil {
