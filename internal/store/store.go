@@ -8,6 +8,7 @@ import (
 
 type Store interface {
 	DocumentStore
+	Transaction(ctx context.Context, f func(ctx context.Context) error) error
 }
 
 type DocumentStore interface {
