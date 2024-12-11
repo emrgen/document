@@ -107,6 +107,7 @@ func (d DocumentService) GetDocument(ctx context.Context, request *v1.GetDocumen
 			Id:        doc.ID,
 			Title:     doc.Name,
 			Content:   string(data),
+			Parts:     doc.Parts,
 			CreatedAt: timestamppb.New(doc.CreatedAt),
 			UpdatedAt: timestamppb.New(doc.UpdatedAt),
 		},
