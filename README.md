@@ -4,11 +4,9 @@ document is a document store for small projects. It is designed to be simple and
 
 ## Features
 
-users, orgs, projects, groups are managed by authback service.
-
 - [ ] Create document
 - [ ] Update document
-- [] Delete document
+- [ ] Delete document
 
 ## Installation
 

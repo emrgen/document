@@ -42,7 +42,9 @@ func NewDocumentService(db *gorm.DB, redis *cache.Redis, client spdb.Permissions
 
 // CreateDocument creates a new document.
 func (d DocumentService) CreateDocument(ctx context.Context, request *v1.CreateDocumentRequest) (*v1.CreateDocumentResponse, error) {
-	doc := &model.Document{}
+	doc := &model.Document{
+		ProjectID: request.GetProjectId(),
+	}
 	var err error
 
 	if request.Id != nil {
@@ -93,12 +95,6 @@ func (d DocumentService) CreateDocument(ctx context.Context, request *v1.CreateD
 
 // GetDocument retrieves a document.
 func (d DocumentService) GetDocument(ctx context.Context, request *v1.GetDocumentRequest) (*v1.GetDocumentResponse, error) {
-	id := uuid.MustParse(request.GetId())
-	// check if the project has access to the document
-	if err := d.verifyDocumentPermission(ctx, id, "viewer"); err != nil {
-		return nil, err
-	}
-
 	// Get document from database
 	doc, err := model.GetDocument(d.db, request.Id)
 	if err != nil {
@@ -123,25 +119,39 @@ func (d DocumentService) GetDocument(ctx context.Context, request *v1.GetDocumen
 
 // ListDocuments lists documents.
 func (d DocumentService) ListDocuments(ctx context.Context, request *v1.ListDocumentsRequest) (*v1.ListDocumentsResponse, error) {
-	_, err := uuid.Parse(request.ProjectId)
+	var err error
+	_, err = uuid.Parse(request.ProjectId)
 	if err != nil {
 		return nil, err
 	}
 
 	// Get documents from database
-	//docs, err := d.db.ListDocuments(projectID)
+	var documents []*model.Document
+	err = d.db.Where("project_id = ?", request.ProjectId).Find(&documents).Error
+	if err != nil {
+		return nil, err
+	}
+	var total int64
+	err = d.db.Model(&model.Document{}).Where("project_id = ?", request.ProjectId).Count(&total).Error
 
-	return nil, err
+	var documentsProto []*v1.Document
+	for _, doc := range documents {
+		documentsProto = append(documentsProto, &v1.Document{
+			Id:        doc.ID,
+			Title:     doc.Name,
+			CreatedAt: timestamppb.New(doc.CreatedAt),
+			UpdatedAt: timestamppb.New(doc.UpdatedAt),
+		})
+	}
+
+	return &v1.ListDocumentsResponse{
+		Documents: documentsProto,
+		Total:     int32(total),
+	}, nil
 }
 
 // UpdateDocument updates a document.
 func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateDocumentRequest) (*v1.UpdateDocumentResponse, error) {
-	id := uuid.MustParse(request.GetId())
-	// check if the project has access to the document
-	if err := d.verifyDocumentPermission(ctx, id, "editor"); err != nil {
-		return nil, err
-	}
-
 	document := &model.Document{
 		ID:      request.Id,
 		Name:    request.GetTitle(),
@@ -173,47 +183,10 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 // DeleteDocument deletes a document.
 func (d DocumentService) DeleteDocument(ctx context.Context, request *v1.DeleteDocumentRequest) (*v1.DeleteDocumentResponse, error) {
 	id := uuid.MustParse(request.GetId())
-	// check if the project has access to the document
-	if err := d.verifyDocumentPermission(ctx, id, "reader"); err != nil {
-		return nil, err
-	}
-
 	err := model.DeleteDocument(d.db, id.String())
 	if err != nil {
 		return nil, err
 	}
 
 	return &v1.DeleteDocumentResponse{}, nil
-}
-
-// verify if the project has the required permission on the document
-func (d DocumentService) verifyDocumentPermission(ctx context.Context, docID uuid.UUID, permission string) error {
-	// this cache will be always consistent because the document cannot move between projects
-	var projectID uuid.UUID
-	res, err := d.redis.Get(ctx, docID.String())
-	if err == nil {
-		projectID = uuid.MustParse(res.(string))
-	} else {
-		projectID, err = model.GetDocumentProjectID(d.db, docID.String())
-		if err != nil {
-			return err
-		}
-		d.redis.Set(ctx, docID.String(), projectID.String(), time.Hour)
-	}
-
-	_, err = d.perm.CheckPermission(ctx, &spdb.CheckPermissionRequest{
-		Resource: &spdb.ObjectReference{
-			ObjectType: "document",
-			ObjectId:   docID.String(),
-		},
-		Permission: permission,
-		Subject: &spdb.SubjectReference{
-			Object: &spdb.ObjectReference{
-				ObjectType: "project",
-				ObjectId:   projectID.String(),
-			},
-		},
-	})
-
-	return err
 }
