@@ -73,7 +73,7 @@ func (k *Kafka) SubscribeUpdateDatabaseQueue(ctx context.Context) (<-chan *model
 	return k.subscribe(ctx, DocumentUpdateDatabaseQueue)
 }
 
-func (k *Kafka) subscribe(ctx context.Context, topic string) (<-chan *model.Document, error) {
+func (k *Kafka) subscribe(_ context.Context, topic string) (<-chan *model.Document, error) {
 	err := k.consumer.Subscribe(topic, nil)
 	if err != nil {
 		return nil, err

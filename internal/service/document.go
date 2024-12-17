@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+
 	v1 "github.com/emrgen/document/apis/v1"
 	"github.com/emrgen/document/internal/cache"
 	"github.com/emrgen/document/internal/compress"
@@ -165,6 +166,8 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 			doc.Name = request.GetTitle()
 		}
 
+		// if the content is not nil, update the content
+		// otherwise, append the parts to the document
 		if request.Content != nil {
 			data, err := d.compress.Encode([]byte(request.GetContent()))
 			if err != nil {
@@ -179,6 +182,7 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 			doc.Version = request.GetVersion()
 		} else {
 			doc.Parts = append(doc.Parts, request.GetParts()...)
+			// TOOD: if the parts are too large, we need to merge them
 			doc.Version = request.GetVersion()
 		}
 
@@ -203,10 +207,15 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 // DeleteDocument deletes a document.
 func (d DocumentService) DeleteDocument(ctx context.Context, request *v1.DeleteDocumentRequest) (*v1.DeleteDocumentResponse, error) {
 	id := uuid.MustParse(request.GetId())
+	// soft delete the document
 	err := model.DeleteDocument(d.db, id.String())
 	if err != nil {
 		return nil, err
 	}
 
-	return &v1.DeleteDocumentResponse{}, nil
+	return &v1.DeleteDocumentResponse{
+		Document: &v1.Document{
+			Id: id.String(),
+		},
+	}, nil
 }
