@@ -4,18 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
-	"net/http"
-	"os"
-	"os/signal"
-	"sync"
-	"time"
-
 	gatewayfile "github.com/black-06/grpc-gateway-file"
+	authbasex "github.com/emrgen/authbase/x"
 	v1 "github.com/emrgen/document/apis/v1"
 	"github.com/emrgen/document/internal/cache"
 	"github.com/emrgen/document/internal/config"
 	"github.com/emrgen/document/internal/service"
+	gopackv1 "github.com/emrgen/gopack/apis/v1"
 	"github.com/gobuffalo/packr"
 	grpcmiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpcvalidator "github.com/grpc-ecosystem/go-grpc-middleware/validator"
@@ -27,6 +22,12 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/encoding/protojson"
+	"net"
+	"net/http"
+	"os"
+	"os/signal"
+	"sync"
+	"time"
 )
 
 func UnaryRequestTimeInterceptor() grpc.UnaryClientInterceptor {
@@ -66,10 +67,14 @@ func Start(grpcPort, httpPort string) error {
 		return err
 	}
 
+	conn, err := grpc.NewClient(":4000", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	defer conn.Close()
+	client := gopackv1.NewTokenServiceClient(conn)
+
 	grpcServer := grpc.NewServer(
 		grpc.UnaryInterceptor(grpcmiddleware.ChainUnaryServer(
 			grpcvalidator.UnaryServerInterceptor(),
-			//token.UnaryServerInterceptor(token.NewNullTokenService()),
+			authbasex.VerifyTokenInterceptor(client),
 		)),
 	)
 
