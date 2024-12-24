@@ -5,12 +5,14 @@ import (
 	"errors"
 	"fmt"
 	gatewayfile "github.com/black-06/grpc-gateway-file"
-	authbasex "github.com/emrgen/authbase/x"
 	v1 "github.com/emrgen/document/apis/v1"
 	"github.com/emrgen/document/internal/cache"
 	"github.com/emrgen/document/internal/config"
 	"github.com/emrgen/document/internal/service"
 	gopackv1 "github.com/emrgen/gopack/apis/v1"
+	"github.com/emrgen/gopack/token"
+	tinysv1 "github.com/emrgen/tinys/apis/v1"
+	authz "github.com/emrgen/tinys/aythz"
 	"github.com/gobuffalo/packr"
 	grpcmiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpcvalidator "github.com/grpc-ecosystem/go-grpc-middleware/validator"
@@ -71,10 +73,19 @@ func Start(grpcPort, httpPort string) error {
 	defer conn.Close()
 	client := gopackv1.NewTokenServiceClient(conn)
 
+	tinyconn, err := grpc.NewClient(":4000", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	defer tinyconn.Close()
+	tinyClient := tinysv1.NewMembershipServiceClient(tinyconn)
+
 	grpcServer := grpc.NewServer(
 		grpc.UnaryInterceptor(grpcmiddleware.ChainUnaryServer(
 			grpcvalidator.UnaryServerInterceptor(),
-			authbasex.VerifyTokenInterceptor(client),
+			// verify the token
+			token.VerifyTokenInterceptor(client),
+			// get the project permissions
+			authz.InjectPermissionInterceptor(tinyClient),
+			// check the project permissions
+			CheckPermissionInterceptor(),
 		)),
 	)
 

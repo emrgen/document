@@ -7,8 +7,8 @@ require (
 	github.com/black-06/grpc-gateway-file v0.1.2
 	github.com/confluentinc/confluent-kafka-go v1.9.2
 	github.com/deckarep/golang-set/v2 v2.6.0
-	github.com/emrgen/authbase v0.0.0-00010101000000-000000000000
 	github.com/emrgen/gopack v0.0.0-00010101000000-000000000000
+	github.com/emrgen/tinys v0.0.0-00010101000000-000000000000
 	github.com/envoyproxy/protoc-gen-validate v1.1.0
 	github.com/gobuffalo/packr v1.30.1
 	github.com/google/uuid v1.6.0
@@ -38,6 +38,8 @@ replace github.com/emrgen/authbase => ../authbase
 
 replace github.com/emrgen/gopack => ../gopack
 
+replace github.com/emrgen/tinys => ../tinys
+
 require (
 	dario.cat/mergo v1.0.0 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
@@ -52,11 +54,9 @@ require (
 	github.com/docker/docker v27.1.1+incompatible // indirect
 	github.com/docker/go-connections v0.5.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
-	github.com/go-redis/redis/v8 v8.11.5 // indirect
 	github.com/gobuffalo/envy v1.10.2 // indirect
 	github.com/gobuffalo/packd v1.0.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
