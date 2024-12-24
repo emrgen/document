@@ -39,6 +39,6 @@ func init() {
 	rootCmd.AddCommand(serveCmd)
 	var grpcPort, httpPort string
 
-	serveCmd.Flags().StringVar(&grpcPort, "gp", "7020", "Port to run grpc server on")
-	serveCmd.Flags().StringVar(&httpPort, "hp", "7021", "Port to run http server on")
+	serveCmd.Flags().StringVar(&grpcPort, "gp", "4020", "Port to run grpc server on")
+	serveCmd.Flags().StringVar(&httpPort, "hp", "4021", "Port to run http server on")
 }

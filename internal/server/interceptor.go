@@ -12,7 +12,7 @@ func CheckPermissionInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		permission, ok := ctx.Value("projectPermission").(tinysv1.MemberPermission)
 		if !ok {
-			return nil, errors.New("missing project permission")
+			return nil, errors.New("missing project permission, check if the user is a member of the project")
 		}
 
 		switch info.FullMethod {

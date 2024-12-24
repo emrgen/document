@@ -8,12 +8,12 @@ import (
 func main() {
 	grpcPort := os.Getenv("GRPC_PORT")
 	if grpcPort == "" {
-		grpcPort = "4000"
+		grpcPort = "4020"
 	}
 
 	httpPort := os.Getenv("HTTP_PORT")
 	if httpPort == "" {
-		httpPort = "4001"
+		httpPort = "4021"
 	}
 
 	err := server.Start(grpcPort, httpPort)

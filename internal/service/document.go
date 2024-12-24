@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	gox "github.com/emrgen/gopack/x"
 
 	v1 "github.com/emrgen/document/apis/v1"
 	"github.com/emrgen/document/internal/cache"
@@ -38,11 +39,12 @@ func NewDocumentService(db *gorm.DB, redis *cache.Redis) *DocumentService {
 
 // CreateDocument creates a new document.
 func (d DocumentService) CreateDocument(ctx context.Context, request *v1.CreateDocumentRequest) (*v1.CreateDocumentResponse, error) {
-	// TODO: check the user has access to the project
-	doc := &model.Document{
-		ProjectID: request.GetProjectId(),
-	}
 	var err error
+
+	projectID := request.GetProjectId()
+	doc := &model.Document{
+		ProjectID: projectID,
+	}
 
 	if request.Id != nil {
 		doc.ID = request.GetId()
@@ -57,25 +59,7 @@ func (d DocumentService) CreateDocument(ctx context.Context, request *v1.CreateD
 	}
 
 	doc.Content = string(data)
-
-	projectDoc := &model.ProjectDocument{
-		DocumentID: doc.ID,
-		ProjectID:  request.ProjectId,
-	}
-
-	err = d.db.Transaction(func(tx *gorm.DB) error {
-		err := model.CreateDocument(d.db, doc)
-		if err != nil {
-			return err
-		}
-
-		err = model.CreateProjectDocument(d.db, projectDoc)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
+	err = model.CreateDocument(d.db, doc)
 	if err != nil {
 		return nil, err
 	}
@@ -118,19 +102,19 @@ func (d DocumentService) GetDocument(ctx context.Context, request *v1.GetDocumen
 // ListDocuments lists documents.
 func (d DocumentService) ListDocuments(ctx context.Context, request *v1.ListDocumentsRequest) (*v1.ListDocumentsResponse, error) {
 	var err error
-	_, err = uuid.Parse(request.ProjectId)
+	projectID, err := gox.GetProjectID(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	// Get documents from database
 	var documents []*model.Document
-	err = d.db.Where("project_id = ?", request.ProjectId).Find(&documents).Error
+	err = d.db.Where("project_id = ?", projectID.String()).Find(&documents).Error
 	if err != nil {
 		return nil, err
 	}
 	var total int64
-	err = d.db.Model(&model.Document{}).Where("project_id = ?", request.ProjectId).Count(&total).Error
+	err = d.db.Model(&model.Document{}).Where("project_id = ?", projectID.String()).Count(&total).Error
 
 	var documentsProto []*v1.Document
 	for _, doc := range documents {

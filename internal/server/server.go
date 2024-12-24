@@ -69,23 +69,25 @@ func Start(grpcPort, httpPort string) error {
 		return err
 	}
 
-	conn, err := grpc.NewClient(":4000", grpc.WithTransportCredentials(insecure.NewCredentials()))
-	defer conn.Close()
-	client := gopackv1.NewTokenServiceClient(conn)
+	authConn, err := grpc.NewClient(":4000", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	defer authConn.Close()
+	// authClient provides the token service
+	authClient := gopackv1.NewTokenServiceClient(authConn)
 
-	tinyconn, err := grpc.NewClient(":4000", grpc.WithTransportCredentials(insecure.NewCredentials()))
-	defer tinyconn.Close()
-	tinyClient := tinysv1.NewMembershipServiceClient(tinyconn)
+	tinyConn, err := grpc.NewClient(":4010", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	defer tinyConn.Close()
+	// tinyClient provides the membership service
+	tinyClient := tinysv1.NewMembershipServiceClient(tinyConn)
 
 	grpcServer := grpc.NewServer(
 		grpc.UnaryInterceptor(grpcmiddleware.ChainUnaryServer(
 			grpcvalidator.UnaryServerInterceptor(),
 			// verify the token
-			token.VerifyTokenInterceptor(client),
+			token.VerifyTokenInterceptor(authClient),
 			// get the project permissions
 			authz.InjectPermissionInterceptor(tinyClient),
 			// check the project permissions
-			CheckPermissionInterceptor(),
+			// CheckPermissionInterceptor(),
 		)),
 	)
 
@@ -110,7 +112,7 @@ func Start(grpcPort, httpPort string) error {
 	}
 	endpoint := "localhost" + grpcPort
 
-	// create token service client
+	// create token service authClient
 	redis, err := cache.NewRedis()
 	if err != nil {
 		return err
