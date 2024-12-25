@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	v1 "github.com/emrgen/document/apis/v1"
 	"github.com/olekukonko/tablewriter"
 	"github.com/sirupsen/logrus"
@@ -17,7 +18,9 @@ var documentCmd = &cobra.Command{
 
 func init() {
 	documentCmd.AddCommand(createDocCmd())
+	documentCmd.AddCommand(getDocCmd())
 	documentCmd.AddCommand(listDocCmd())
+	documentCmd.AddCommand(updateDocCmd())
 }
 
 func createDocCmd() *cobra.Command {
@@ -65,6 +68,57 @@ func createDocCmd() *cobra.Command {
 	return command
 }
 
+func getDocCmd() *cobra.Command {
+	var projectID string
+	var docID string
+
+	command := &cobra.Command{
+		Use:   "get",
+		Short: "get a document",
+		Run: func(cmd *cobra.Command, args []string) {
+			if projectID == "" {
+				logrus.Errorf("missing required flag: --project-id")
+				return
+			}
+
+			if docID == "" {
+				logrus.Errorf("missing required flag: --doc-id")
+				return
+			}
+
+			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+			defer conn.Close()
+			client := v1.NewDocumentServiceClient(conn)
+
+			ctx := tokenContext()
+			res, err := client.GetDocument(ctx, &v1.GetDocumentRequest{
+				ProjectId: projectID,
+				Id:        docID,
+			})
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+
+			table := tablewriter.NewWriter(os.Stdout)
+			table.SetHeader([]string{"ID", "Created At"})
+			table.Append([]string{res.Document.Id, res.Document.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
+			table.Render()
+			fmt.Printf("Title: %s\n", res.Document.Title)
+			fmt.Printf("Content: %s\n", res.Document.Content)
+		},
+	}
+
+	command.Flags().StringVarP(&projectID, "project", "p", "", "project id to get the document from")
+	command.Flags().StringVarP(&docID, "doc-id", "d", "", "document id to get")
+
+	return command
+}
+
 func listDocCmd() *cobra.Command {
 	var projectID string
 
@@ -106,6 +160,59 @@ func listDocCmd() *cobra.Command {
 	}
 
 	command.Flags().StringVarP(&projectID, "project", "p", "", "project id to list documents")
+
+	return command
+}
+
+func updateDocCmd() *cobra.Command {
+	var projectID string
+	var docID string
+	var docTitle string
+	var content string
+
+	command := &cobra.Command{
+		Use:   "update",
+		Short: "update a document",
+		Run: func(cmd *cobra.Command, args []string) {
+			if projectID == "" {
+				logrus.Errorf("missing required flag: --project-id")
+				return
+			}
+
+			if docID == "" {
+				logrus.Errorf("missing required flag: --doc-id")
+				return
+			}
+
+			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+			defer conn.Close()
+			client := v1.NewDocumentServiceClient(conn)
+
+			ctx := tokenContext()
+			_, err = client.UpdateDocument(ctx, &v1.UpdateDocumentRequest{
+				ProjectId: projectID,
+				Id:        docID,
+				Title:     &docTitle,
+				Content:   &content,
+				Version:   -1,
+			})
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+
+			logrus.Infof("document updated successfully")
+		},
+	}
+
+	command.Flags().StringVarP(&projectID, "project", "p", "", "project id to update the document in")
+	command.Flags().StringVarP(&docID, "doc-id", "d", "", "document id to update")
+	command.Flags().StringVarP(&docTitle, "title", "t", "", "title of the document")
+	command.Flags().StringVarP(&content, "content", "c", "", "content of the document")
 
 	return command
 }

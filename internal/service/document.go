@@ -141,7 +141,9 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 			return err
 		}
 
-		if doc.Version+1 != request.GetVersion() {
+		overwrite := request.Version == -1
+
+		if !overwrite && doc.Version+1 != request.GetVersion() {
 			return errors.New("document version mismatch")
 		}
 
@@ -152,7 +154,7 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 
 		// if the content is not nil, update the content
 		// otherwise, append the parts to the document
-		if request.Content != nil {
+		if overwrite || request.Content != nil {
 			data, err := d.compress.Encode([]byte(request.GetContent()))
 			if err != nil {
 				return err
@@ -166,7 +168,7 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 			doc.Version = request.GetVersion()
 		} else {
 			doc.Parts = append(doc.Parts, request.GetParts()...)
-			// TOOD: if the parts are too large, we need to merge them
+			// TODO: if the parts are too large, we need to merge them
 			doc.Version = request.GetVersion()
 		}
 

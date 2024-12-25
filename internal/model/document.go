@@ -24,7 +24,6 @@ func CreateDocument(db *gorm.DB, document *Document) error {
 
 func GetDocument(db *gorm.DB, id string) (*Document, error) {
 	document := &Document{}
-	logrus.Info("GetDocument: ", id)
 	err := db.Where("id = ?", id).First(document).Error
 	if err != nil {
 		logrus.Errorf("Error getting document: %v", err)
