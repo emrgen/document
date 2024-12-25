@@ -46,6 +46,7 @@ message GetDocumentResponse {
 }
 
 message ListDocumentsRequest {
+  string project_id = 1 [(validate.rules).string.uuid = true];
   int32 page = 5;
   int32 per_page = 6;
 }
