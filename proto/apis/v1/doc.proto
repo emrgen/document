@@ -140,4 +140,112 @@ service DocumentService {
 }
 
 
+message ListDocumentBackupsRequest {
+  string project_id = 1 [(validate.rules).string.uuid = true];
+  string document_id = 2 [(validate.rules).string.uuid = true];
+  int32 page = 5;
+  int32 per_page = 6;
+}
 
+message ListDocumentBackupsResponse {
+  repeated Document documents = 1;
+  int32 total = 2;
+}
+
+message CreateDocumentBackupRequest {
+  string project_id = 1 [(validate.rules).string.uuid = true];
+  string document_id = 2 [(validate.rules).string.uuid = true];
+}
+
+message CreateDocumentBackupResponse {
+  Document document = 1;
+}
+
+message GetDocumentBackupRequest {
+  string project_id = 1 [(validate.rules).string.uuid = true];
+  string document_id = 2 [(validate.rules).string.uuid = true];
+  string id = 3 [(validate.rules).string.uuid = true];
+}
+
+message GetDocumentBackupResponse {
+  Document document = 1;
+}
+
+message DeleteDocumentBackupRequest {
+  string project_id = 1 [(validate.rules).string.uuid = true];
+  string document_id = 2 [(validate.rules).string.uuid = true];
+  string id = 3 [(validate.rules).string.uuid = true];
+}
+
+message DeleteDocumentBackupResponse {
+  Document document = 1;
+}
+
+message RestoreDocumentBackupRequest {
+  string project_id = 1 [(validate.rules).string.uuid = true];
+  string document_id = 2 [(validate.rules).string.uuid = true];
+  string id = 3 [(validate.rules).string.uuid = true];
+}
+
+message RestoreDocumentBackupResponse {
+  Document document = 1;
+}
+
+service DocumentBackupService {
+  rpc ListDocumentBackups(ListDocumentBackupsRequest) returns (ListDocumentBackupsResponse) {
+    option (google.api.http) = {
+      get: "/v1/documents/{document_id}/backups"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "List document backups"
+      description: "List document backups"
+      operation_id: "ListDocumentBackups"
+    };
+  }
+
+  rpc CreateDocumentBackup(CreateDocumentBackupRequest) returns (CreateDocumentBackupResponse) {
+    option (google.api.http) = {
+      post: "/v1/documents/{document_id}/backups"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Create a document backup"
+      description: "Create a document backup"
+      operation_id: "CreateDocumentBackup"
+    };
+  }
+
+  rpc GetDocumentBackup(GetDocumentBackupRequest) returns (GetDocumentBackupResponse) {
+    option (google.api.http) = {
+      get: "/v1/documents/{document_id}/backups/{id}"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get a document backup"
+      description: "Get a document backup"
+      operation_id: "GetDocumentBackup"
+    };
+  }
+
+  rpc DeleteDocumentBackup(DeleteDocumentBackupRequest) returns (DeleteDocumentBackupResponse) {
+    option (google.api.http) = {
+      delete: "/v1/documents/{document_id}/backups/{id}"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Delete a document backup"
+      description: "Delete a document backup"
+      operation_id: "DeleteDocumentBackup"
+    };
+  }
+
+  rpc RestoreDocumentBackup(RestoreDocumentBackupRequest) returns (RestoreDocumentBackupResponse) {
+    option (google.api.http) = {
+      post: "/v1/documents/{document_id}/backups/{id}/restore"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Restore a document backup"
+      description: "Restore a document backup"
+      operation_id: "RestoreDocumentBackup"
+    };
+  }
+}

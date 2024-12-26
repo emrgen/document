@@ -15,7 +15,7 @@ type Document struct {
 	Parts     []string `gorm:"type:text[]"`
 	ProjectID string   `gorm:"not null"`
 	Kind      string   // markdown, html, json, etc.
-	Version   int64    // the clock of the document
+	Version   uint64   // the clock of the document
 }
 
 func CreateDocument(db *gorm.DB, document *Document) error {

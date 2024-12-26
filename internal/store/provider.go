@@ -8,7 +8,7 @@ import (
 
 var ErrStoreNotFound = errors.New("store not found")
 
-type StoreProvider interface {
+type DocumentStoreProvider interface {
 	Provide(projectID uuid.UUID) (Store, error)
 }
 

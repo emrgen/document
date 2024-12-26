@@ -9,6 +9,7 @@ import (
 	"github.com/emrgen/document/internal/cache"
 	"github.com/emrgen/document/internal/config"
 	"github.com/emrgen/document/internal/service"
+	"github.com/emrgen/document/internal/store"
 	gopackv1 "github.com/emrgen/gopack/apis/v1"
 	"github.com/emrgen/gopack/token"
 	tinysv1 "github.com/emrgen/tinys/apis/v1"
@@ -32,6 +33,7 @@ import (
 	"time"
 )
 
+// Start starts the grpc and http servers
 func Start(grpcPort, httpPort string) error {
 	var err error
 
@@ -101,8 +103,14 @@ func Start(grpcPort, httpPort string) error {
 		return err
 	}
 
+	docStore := store.NewGormStore(rdb)
+	err = docStore.Migrate()
+	if err != nil {
+		return err
+	}
+
 	// Register the grpc server
-	v1.RegisterDocumentServiceServer(grpcServer, service.NewDocumentService(rdb, redis))
+	v1.RegisterDocumentServiceServer(grpcServer, service.NewDocumentService(rdb, docStore, redis))
 
 	// Register the rest gateway
 	if err = v1.RegisterDocumentServiceHandlerFromEndpoint(context.TODO(), mux, endpoint, opts); err != nil {

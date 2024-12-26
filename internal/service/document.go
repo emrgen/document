@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"github.com/emrgen/document/internal/store"
 	gox "github.com/emrgen/gopack/x"
 
 	v1 "github.com/emrgen/document/apis/v1"
@@ -18,23 +19,25 @@ var (
 	_ v1.DocumentServiceServer = (*DocumentService)(nil)
 )
 
+// NewDocumentService creates a new DocumentService.
+func NewDocumentService(db *gorm.DB, store store.Store, redis *cache.Redis) *DocumentService {
+	service := &DocumentService{
+		db:       db,
+		redis:    redis,
+		store:    store,
+		compress: compress.NewGZip(),
+	}
+
+	return service
+}
+
 // DocumentService is a service for managing documents.
 type DocumentService struct {
 	db       *gorm.DB
 	compress compress.Compress
 	redis    *cache.Redis
+	store    store.Store
 	v1.UnimplementedDocumentServiceServer
-}
-
-// NewDocumentService creates a new DocumentService.
-func NewDocumentService(db *gorm.DB, redis *cache.Redis) *DocumentService {
-	service := &DocumentService{
-		db:       db,
-		redis:    redis,
-		compress: compress.NewGZip(),
-	}
-
-	return service
 }
 
 // CreateDocument creates a new document.
@@ -76,6 +79,12 @@ func (d DocumentService) CreateDocument(ctx context.Context, request *v1.CreateD
 
 // GetDocument retrieves a document.
 func (d DocumentService) GetDocument(ctx context.Context, request *v1.GetDocumentRequest) (*v1.GetDocumentResponse, error) {
+	// TODO: first look into cache
+	// doc, err := d.redis.Get(ctx, fmt.Sprintf("document:%s/version:%s", request.Id, request.Version))
+	// if err == nil {
+	// 	return doc, nil
+	// }
+
 	// Get document from database
 	doc, err := model.GetDocument(d.db, request.Id)
 	if err != nil {
@@ -134,16 +143,32 @@ func (d DocumentService) ListDocuments(ctx context.Context, request *v1.ListDocu
 
 // UpdateDocument updates a document.
 func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateDocumentRequest) (*v1.UpdateDocumentResponse, error) {
-	err := d.db.Transaction(func(tx *gorm.DB) error {
+	var err error
+	userID, err := gox.GetUserID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	err = d.db.Transaction(func(tx *gorm.DB) error {
 		// Get document from database
 		doc, err := model.GetDocument(d.db, request.Id)
 		if err != nil {
 			return err
 		}
 
+		err = d.store.CreateDocumentBackup(ctx, &model.DocumentBackup{
+			ID:        doc.ID,
+			Version:   doc.Version + 1,
+			Content:   doc.Content,
+			UpdatedBy: userID.String(),
+		})
+		if err != nil {
+			return err
+		}
+
 		overwrite := request.Version == -1
 
-		if !overwrite && doc.Version+1 != request.GetVersion() {
+		if !overwrite && doc.Version+1 != uint64(request.GetVersion()) {
 			return errors.New("document version mismatch")
 		}
 
@@ -165,17 +190,20 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 				doc.Parts = request.GetParts()
 			}
 
-			doc.Version = request.GetVersion()
+			doc.Version = doc.Version + 1
 		} else {
 			doc.Parts = append(doc.Parts, request.GetParts()...)
 			// TODO: if the parts are too large, we need to merge them
-			doc.Version = request.GetVersion()
+			doc.Version = doc.Version + 1
 		}
 
 		err = model.UpdateDocument(d.db, request.Id, doc)
 		if err != nil {
 			return err
 		}
+
+		// TODO: Set document in cache
+		//d.redis.Set(ctx, fmt.Sprintf("document:%s/version:%s", doc.ID, doc.Version), doc, 0)
 
 		return nil
 	})
