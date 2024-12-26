@@ -4,14 +4,27 @@ document is a document store for small projects. It is designed to be simple and
 
 ## Features
 
-- [ ] Create document
-- [ ] Update document
-- [ ] Delete document
+- [x] Create document
+- [x] Update document
+- [x] Delete document
+- [x] Get document
+- [x] List documents
+- [ ] Search documents
+- [x] Document versioning
+- [x] Document history
+- [ ] Document tags
+- [x] Document backup
+- [ ] Document restore
+- [ ] Document export
+- [ ] Document backlinks
+- [ ] Document links
+- [ ] Document auto backup to S3
+- [ ] Document auto load from S3
 
 ## Installation
 
 ```bash
-# install initial dependencies(it will fail but thats fine, still need to run it)
+# install initial dependencies(it will fail but that's fine, still need to run it)
 make deps
 # build proto
 make protoc
