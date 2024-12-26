@@ -5,13 +5,16 @@ import (
 	"compress/gzip"
 )
 
+// GZip is a GZip implementation of the Compress interface.
 type GZip struct {
 }
 
+// NewGZip returns a new GZip.
 func NewGZip() GZip {
 	return GZip{}
 }
 
+// Encode compresses data using GZip.
 func (g GZip) Encode(data []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	w := gzip.NewWriter(&buf)
@@ -28,6 +31,7 @@ func (g GZip) Encode(data []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// Decode decompresses data using GZip.
 func (g GZip) Decode(data []byte) ([]byte, error) {
 	gr, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {

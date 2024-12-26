@@ -20,14 +20,17 @@ func CheckPermissionInterceptor() grpc.UnaryServerInterceptor {
 		switch info.FullMethod {
 		case v1.DocumentService_CreateDocument_FullMethodName,
 			v1.DocumentService_UpdateDocument_FullMethodName,
-			v1.DocumentService_DeleteDocument_FullMethodName:
+			v1.DocumentService_DeleteDocument_FullMethodName,
+			v1.DocumentBackupService_RestoreDocumentBackup_FullMethodName:
 			// check if the user has permission to write
 			if permission >= tinysv1.MemberPermission_MEMBER_WRITE {
 				return handler(ctx, req)
 			}
 
 		case v1.DocumentService_ListDocuments_FullMethodName,
-			v1.DocumentService_GetDocument_FullMethodName:
+			v1.DocumentService_GetDocument_FullMethodName,
+			v1.DocumentBackupService_ListDocumentBackups_FullMethodName,
+			v1.DocumentBackupService_GetDocumentBackup_FullMethodName:
 			// check if the user has permission to read
 			if permission >= tinysv1.MemberPermission_MEMBER_READ {
 				return handler(ctx, req)

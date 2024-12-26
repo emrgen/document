@@ -9,13 +9,14 @@ import (
 
 type Document struct {
 	gorm.Model
-	ID        string   `gorm:"primaryKey;uuid;not null;"`
-	Name      string   `gorm:"not null"`
-	Content   string   `gorm:"not null"`
-	Parts     []string `gorm:"type:text[]"`
-	ProjectID string   `gorm:"not null"`
-	Kind      string   // markdown, html, json, etc.
-	Version   uint64   // the clock of the document
+	ID          string   `gorm:"primaryKey;uuid;not null;"`
+	Name        string   `gorm:"not null"`
+	Content     string   `gorm:"not null"`
+	Parts       []string `gorm:"type:text[]"`
+	ProjectID   string   `gorm:"not null"`
+	Kind        string   // markdown, html, json, etc.
+	Version     uint64   // the clock of the document
+	Compression string   // the compression algorithm used
 }
 
 func CreateDocument(db *gorm.DB, document *Document) error {
