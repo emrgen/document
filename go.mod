@@ -10,7 +10,6 @@ require (
 	github.com/andybalholm/brotli v1.1.1
 	github.com/black-06/grpc-gateway-file v0.1.2
 	github.com/confluentinc/confluent-kafka-go v1.9.2
-	github.com/deckarep/golang-set/v2 v2.7.0
 	github.com/emrgen/gopack v0.0.0-00010101000000-000000000000
 	github.com/emrgen/tinys v0.0.0-00010101000000-000000000000
 	github.com/envoyproxy/protoc-gen-validate v1.1.0
@@ -23,7 +22,6 @@ require (
 	github.com/ory/dockertest/v3 v3.11.0
 	github.com/pierrec/lz4/v4 v4.1.22
 	github.com/redis/go-redis/v9 v9.7.0
-	github.com/robfig/cron v1.2.0
 	github.com/rs/cors v1.11.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.1

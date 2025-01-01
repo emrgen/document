@@ -16,7 +16,8 @@ type Document struct {
 	ProjectID   string   `gorm:"not null"`
 	Kind        string   // markdown, html, json, etc.
 	Version     uint64   // the clock of the document
-	Compression string   // the compression algorithm used
+	Compression string   // the compression algorithm used to compress the document content
+	Meta        string   // the metadata of the document, lww
 }
 
 func CreateDocument(db *gorm.DB, document *Document) error {

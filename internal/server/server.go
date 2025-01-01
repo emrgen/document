@@ -72,7 +72,7 @@ func Start(grpcPort, httpPort string) error {
 			authz.InjectPermissionInterceptor(tinyClient),
 			// check the project permissions
 			CheckPermissionInterceptor(),
-			//UnaryGrpcRequestTimeInterceptor(),
+			UnaryGrpcRequestTimeInterceptor(),
 		)),
 	)
 
