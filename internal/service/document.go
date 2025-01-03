@@ -121,9 +121,36 @@ func (d DocumentService) ListDocuments(ctx context.Context, request *v1.ListDocu
 		return nil, err
 	}
 
-	// Get documents from database
+	// List documents from ids
+	if len(request.GetDocumentIds()) > 0 {
+		var documents []*model.Document
+		err = d.db.Where("project_id = ? AND id IN ?", projectID.String(), request.GetDocumentIds()).Find(&documents).Error
+		if err != nil {
+			return nil, err
+		}
+
+		var documentsProto []*v1.Document
+		for _, doc := range documents {
+			documentsProto = append(documentsProto, &v1.Document{
+				Id:        doc.ID,
+				Title:     doc.Name,
+				Summary:   doc.Summary,
+				Excerpt:   doc.Excerpt,
+				Thumbnail: doc.Thumbnail,
+				CreatedAt: timestamppb.New(doc.CreatedAt),
+				UpdatedAt: timestamppb.New(doc.UpdatedAt),
+			})
+		}
+
+		return &v1.ListDocumentsResponse{
+			Documents: documentsProto,
+			Total:     int32(len(documents)),
+		}, nil
+	}
+
+	// Get documents from database page by page
 	var documents []*model.Document
-	err = d.db.Where("project_id = ?", projectID.String()).Find(&documents).Error
+	err = d.db.Where("project_id = ?", projectID.String()).Order("created_at DESC").Find(&documents).Error
 	if err != nil {
 		return nil, err
 	}
