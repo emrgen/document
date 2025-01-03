@@ -17,9 +17,13 @@ message Document {
   string content = 3;
   repeated string parts = 4;
   optional string kind = 5; // default: treated as text
-  uint64 version = 6;
-  google.protobuf.Timestamp created_at = 10;
-  google.protobuf.Timestamp updated_at = 11;
+  int64 version = 6;
+  optional string data = 7;
+  string summary = 8;
+  string excerpt = 9;
+  string thumbnail = 10;
+  google.protobuf.Timestamp created_at = 20;
+  google.protobuf.Timestamp updated_at = 21;
 }
 
 extend google.protobuf.MessageOptions {
@@ -64,7 +68,11 @@ message UpdateDocumentRequest {
   optional string title = 3;
   optional string content = 4;
   repeated string parts = 5;
-  int64 version = 6;
+  optional string data = 6;
+  optional string summary = 7;
+  optional string excerpt = 8;
+  optional string thumbnail = 9;
+  int64 version = 10;
 }
 
 message UpdateDocumentResponse {

@@ -3,8 +3,10 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/emrgen/document/internal/store"
 	gox "github.com/emrgen/gopack/x"
+	"github.com/sirupsen/logrus"
 
 	v1 "github.com/emrgen/document/apis/v1"
 	"github.com/emrgen/document/internal/cache"
@@ -102,6 +104,9 @@ func (d DocumentService) GetDocument(ctx context.Context, request *v1.GetDocumen
 			Title:     doc.Name,
 			Content:   string(data),
 			Parts:     doc.Parts,
+			Excerpt:   doc.Excerpt,
+			Summary:   doc.Summary,
+			Version:   doc.Version,
 			CreatedAt: timestamppb.New(doc.CreatedAt),
 			UpdatedAt: timestamppb.New(doc.UpdatedAt),
 		},
@@ -156,25 +161,31 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 			return err
 		}
 
-		err = d.store.CreateDocumentBackup(ctx, &model.DocumentBackup{
-			ID:        doc.ID,
-			Version:   doc.Version + 1,
-			Content:   doc.Content,
-			UpdatedBy: userID.String(),
-		})
-		if err != nil {
-			return err
-		}
-
 		overwrite := request.Version == -1
 
-		if !overwrite && doc.Version+1 != uint64(request.GetVersion()) {
-			return errors.New("document version mismatch")
+		if !overwrite && doc.Version+1 != request.GetVersion() {
+			return errors.New(fmt.Sprintf("current version: %d, expected version %d, provider version: %d, ", doc.Version, doc.Version+1, request.GetVersion()))
 		}
 
 		// Update document in database
 		if request.Title != nil {
 			doc.Name = request.GetTitle()
+		}
+
+		if request.Data != nil {
+			doc.Data = request.GetData()
+		}
+
+		if request.Summary != nil {
+			doc.Summary = request.GetSummary()
+		}
+
+		if request.Excerpt != nil {
+			doc.Excerpt = request.GetExcerpt()
+		}
+
+		if request.Thumbnail != nil {
+			doc.Thumbnail = request.GetThumbnail()
 		}
 
 		// if the content is not nil, update the content
@@ -197,6 +208,17 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 			doc.Version = doc.Version + 1
 		}
 
+		err = d.store.CreateDocumentBackup(ctx, &model.DocumentBackup{
+			ID:        doc.ID,
+			Version:   doc.Version,
+			Content:   doc.Content,
+			UpdatedBy: userID.String(),
+		})
+		if err != nil {
+			return err
+		}
+
+		logrus.Info("updating document", doc.ID, doc.Version)
 		err = model.UpdateDocument(d.db, request.Id, doc)
 		if err != nil {
 			return err

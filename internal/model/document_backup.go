@@ -9,7 +9,7 @@ import "gorm.io/gorm"
 type DocumentBackup struct {
 	gorm.Model
 	ID          string    `gorm:"primaryKey:uuid;"`
-	Version     uint64    `gorm:"primaryKey"`
+	Version     int64     `gorm:"primaryKey"`
 	Document    *Document `gorm:"foreignKey:ID"`
 	Title       string    `gorm:""`
 	Content     string    `gorm:""`
