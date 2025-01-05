@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	authx "github.com/emrgen/authbase/x"
 	"github.com/emrgen/document/internal/store"
-	gox "github.com/emrgen/gopack/x"
 	"github.com/sirupsen/logrus"
 
 	v1 "github.com/emrgen/document/apis/v1"
@@ -116,7 +116,7 @@ func (d DocumentService) GetDocument(ctx context.Context, request *v1.GetDocumen
 // ListDocuments lists documents.
 func (d DocumentService) ListDocuments(ctx context.Context, request *v1.ListDocumentsRequest) (*v1.ListDocumentsResponse, error) {
 	var err error
-	projectID, err := gox.GetProjectID(ctx)
+	projectID, err := authx.GetAuthbaseProjectID(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -137,6 +137,7 @@ func (d DocumentService) ListDocuments(ctx context.Context, request *v1.ListDocu
 				Summary:   doc.Summary,
 				Excerpt:   doc.Excerpt,
 				Thumbnail: doc.Thumbnail,
+				Version:   doc.Version,
 				CreatedAt: timestamppb.New(doc.CreatedAt),
 				UpdatedAt: timestamppb.New(doc.UpdatedAt),
 			})
@@ -176,7 +177,7 @@ func (d DocumentService) ListDocuments(ctx context.Context, request *v1.ListDocu
 // UpdateDocument updates a document.
 func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateDocumentRequest) (*v1.UpdateDocumentResponse, error) {
 	var err error
-	userID, err := gox.GetUserID(ctx)
+	userID, err := authx.GetAuthbaseUserID(ctx)
 	if err != nil {
 		return nil, err
 	}

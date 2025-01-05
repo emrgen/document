@@ -3,8 +3,9 @@ package server
 import (
 	"context"
 	"errors"
+	authbasev1 "github.com/emrgen/authbase/apis/v1"
+	authx "github.com/emrgen/authbase/x"
 	v1 "github.com/emrgen/document/apis/v1"
-	tinysv1 "github.com/emrgen/tinys/apis/v1"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"time"
@@ -12,9 +13,9 @@ import (
 
 func CheckPermissionInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-		permission, ok := ctx.Value("project_permission").(tinysv1.MemberPermission)
-		if !ok {
-			return nil, errors.New("missing project permission, check if the user is a member of the project")
+		permission, err := authx.GetProjectPermission(ctx)
+		if err != nil {
+			return nil, err
 		}
 
 		switch info.FullMethod {
@@ -23,7 +24,7 @@ func CheckPermissionInterceptor() grpc.UnaryServerInterceptor {
 			v1.DocumentService_DeleteDocument_FullMethodName,
 			v1.DocumentBackupService_RestoreDocumentBackup_FullMethodName:
 			// check if the user has permission to write
-			if permission >= tinysv1.MemberPermission_MEMBER_WRITE {
+			if permission >= authbasev1.Permission_ADMIN {
 				return handler(ctx, req)
 			}
 
@@ -32,7 +33,7 @@ func CheckPermissionInterceptor() grpc.UnaryServerInterceptor {
 			v1.DocumentBackupService_ListDocumentBackups_FullMethodName,
 			v1.DocumentBackupService_GetDocumentBackup_FullMethodName:
 			// check if the user has permission to read
-			if permission >= tinysv1.MemberPermission_MEMBER_READ {
+			if permission >= authbasev1.Permission_READ {
 				return handler(ctx, req)
 			}
 

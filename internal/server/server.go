@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	gatewayfile "github.com/black-06/grpc-gateway-file"
+	authbasev1 "github.com/emrgen/authbase/apis/v1"
+	authbase "github.com/emrgen/authbase/x"
 	v1 "github.com/emrgen/document/apis/v1"
 	"github.com/emrgen/document/internal/cache"
 	"github.com/emrgen/document/internal/config"
@@ -12,8 +14,6 @@ import (
 	"github.com/emrgen/document/internal/store"
 	gopackv1 "github.com/emrgen/gopack/apis/v1"
 	"github.com/emrgen/gopack/token"
-	tinysv1 "github.com/emrgen/tinys/apis/v1"
-	authz "github.com/emrgen/tinys/aythz"
 	"github.com/gobuffalo/packr"
 	grpcmiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpcvalidator "github.com/grpc-ecosystem/go-grpc-middleware/validator"
@@ -53,25 +53,23 @@ func Start(grpcPort, httpPort string) error {
 		return err
 	}
 
+	// NOTE: this can be modified to use a different service
 	authConn, err := grpc.NewClient(":4000", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	defer authConn.Close()
 	// authClient provides the token service
 	authClient := gopackv1.NewTokenServiceClient(authConn)
-
-	tinyConn, err := grpc.NewClient(":4010", grpc.WithTransportCredentials(insecure.NewCredentials()))
-	defer tinyConn.Close()
-	// tinyClient provides the membership service
-	tinyClient := tinysv1.NewMembershipServiceClient(tinyConn)
+	memberClient := authbasev1.NewMemberServiceClient(authConn)
 
 	grpcServer := grpc.NewServer(
 		grpc.UnaryInterceptor(grpcmiddleware.ChainUnaryServer(
 			grpcvalidator.UnaryServerInterceptor(),
-			// verify the token
+			// verify the token and inject the user id into the context
 			token.VerifyTokenInterceptor(authClient),
-			// get the project permissions
-			authz.InjectPermissionInterceptor(tinyClient),
-			// check the project permissions
+			// inject the project permission into the context
+			authbase.InjectPermissionInterceptor(memberClient),
+			// check if the user has permission to access the rpc method
 			CheckPermissionInterceptor(),
+			// log the request time
 			UnaryGrpcRequestTimeInterceptor(),
 		)),
 	)
