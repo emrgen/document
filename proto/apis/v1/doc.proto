@@ -43,7 +43,6 @@ message CreateDocumentResponse {
 }
 
 message GetDocumentRequest {
-  string project_id = 1 [(validate.rules).string.uuid = true];
   string id = 2 [(validate.rules).string.uuid = true];
 }
 
@@ -64,8 +63,7 @@ message ListDocumentsResponse {
 }
 
 message UpdateDocumentRequest {
-  string project_id = 1 [(validate.rules).string.uuid = true];
-  string id = 2 [(validate.rules).string.uuid = true];
+  string id = 1 [(validate.rules).string.uuid = true];
   optional string title = 3;
   optional string content = 4;
   repeated string parts = 5;

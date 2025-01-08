@@ -5,15 +5,11 @@ import (
 	"errors"
 	"fmt"
 	gatewayfile "github.com/black-06/grpc-gateway-file"
-	authbasev1 "github.com/emrgen/authbase/apis/v1"
-	authbase "github.com/emrgen/authbase/x"
 	v1 "github.com/emrgen/document/apis/v1"
 	"github.com/emrgen/document/internal/cache"
 	"github.com/emrgen/document/internal/config"
 	"github.com/emrgen/document/internal/service"
 	"github.com/emrgen/document/internal/store"
-	gopackv1 "github.com/emrgen/gopack/apis/v1"
-	"github.com/emrgen/gopack/token"
 	"github.com/gobuffalo/packr"
 	grpcmiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpcvalidator "github.com/grpc-ecosystem/go-grpc-middleware/validator"
@@ -54,21 +50,21 @@ func Start(grpcPort, httpPort string) error {
 	}
 
 	// NOTE: this can be modified to use a different service
-	authConn, err := grpc.NewClient(":4000", grpc.WithTransportCredentials(insecure.NewCredentials()))
-	defer authConn.Close()
+	//authConn, err := grpc.NewClient(":4000", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	//defer authConn.Close()
 	// authClient provides the token service
-	authClient := gopackv1.NewTokenServiceClient(authConn)
-	memberClient := authbasev1.NewMemberServiceClient(authConn)
+	//authClient := gopackv1.NewTokenServiceClient(authConn)
+	//memberClient := authbasev1.NewMemberServiceClient(authConn)
 
 	grpcServer := grpc.NewServer(
 		grpc.UnaryInterceptor(grpcmiddleware.ChainUnaryServer(
 			grpcvalidator.UnaryServerInterceptor(),
 			// verify the token and inject the user id into the context
-			token.VerifyTokenInterceptor(authClient),
+			//token.VerifyTokenInterceptor(authClient),
 			// inject the project permission into the context
-			authbase.InjectPermissionInterceptor(memberClient),
+			//authbase.InjectPermissionInterceptor(memberClient),
 			// check if the user has permission to access the rpc method
-			CheckPermissionInterceptor(),
+			//CheckPermissionInterceptor(),
 			// log the request time
 			UnaryGrpcRequestTimeInterceptor(),
 		)),

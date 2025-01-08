@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	authx "github.com/emrgen/authbase/x"
 	"github.com/emrgen/document/internal/store"
 	"github.com/sirupsen/logrus"
 
@@ -116,7 +115,7 @@ func (d DocumentService) GetDocument(ctx context.Context, request *v1.GetDocumen
 // ListDocuments lists documents.
 func (d DocumentService) ListDocuments(ctx context.Context, request *v1.ListDocumentsRequest) (*v1.ListDocumentsResponse, error) {
 	var err error
-	projectID, err := authx.GetAuthbaseProjectID(ctx)
+	projectID, err := uuid.Parse(request.GetProjectId())
 	if err != nil {
 		return nil, err
 	}
@@ -177,11 +176,6 @@ func (d DocumentService) ListDocuments(ctx context.Context, request *v1.ListDocu
 // UpdateDocument updates a document.
 func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateDocumentRequest) (*v1.UpdateDocumentResponse, error) {
 	var err error
-	userID, err := authx.GetAuthbaseUserID(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	err = d.db.Transaction(func(tx *gorm.DB) error {
 		// Get document from database
 		doc, err := model.GetDocument(d.db, request.Id)
@@ -237,10 +231,9 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 		}
 
 		err = d.store.CreateDocumentBackup(ctx, &model.DocumentBackup{
-			ID:        doc.ID,
-			Version:   doc.Version,
-			Content:   doc.Content,
-			UpdatedBy: userID.String(),
+			ID:      doc.ID,
+			Version: doc.Version,
+			Content: doc.Content,
 		})
 		if err != nil {
 			return err
@@ -270,9 +263,13 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 
 // DeleteDocument deletes a document.
 func (d DocumentService) DeleteDocument(ctx context.Context, request *v1.DeleteDocumentRequest) (*v1.DeleteDocumentResponse, error) {
-	id := uuid.MustParse(request.GetId())
+	id, err := uuid.Parse(request.GetId())
+	if err != nil {
+		return nil, err
+	}
+
 	// soft delete the document
-	err := model.DeleteDocument(d.db, id.String())
+	err = model.DeleteDocument(d.db, id.String())
 	if err != nil {
 		return nil, err
 	}

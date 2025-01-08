@@ -69,18 +69,12 @@ func createDocCmd() *cobra.Command {
 }
 
 func getDocCmd() *cobra.Command {
-	var projectID string
 	var docID string
 
 	command := &cobra.Command{
 		Use:   "get",
 		Short: "get a document",
 		Run: func(cmd *cobra.Command, args []string) {
-			if projectID == "" {
-				logrus.Errorf("missing required flag: --project-id")
-				return
-			}
-
 			if docID == "" {
 				logrus.Errorf("missing required flag: --doc-id")
 				return
@@ -96,8 +90,7 @@ func getDocCmd() *cobra.Command {
 
 			ctx := tokenContext()
 			res, err := client.GetDocument(ctx, &v1.GetDocumentRequest{
-				ProjectId: projectID,
-				Id:        docID,
+				Id: docID,
 			})
 			if err != nil {
 				logrus.Error(err)
@@ -113,7 +106,6 @@ func getDocCmd() *cobra.Command {
 		},
 	}
 
-	command.Flags().StringVarP(&projectID, "project", "p", "", "project id to get the document from")
 	command.Flags().StringVarP(&docID, "doc-id", "d", "", "document id to get")
 
 	return command
@@ -165,7 +157,6 @@ func listDocCmd() *cobra.Command {
 }
 
 func updateDocCmd() *cobra.Command {
-	var projectID string
 	var docID string
 	var docTitle string
 	var content string
@@ -174,11 +165,6 @@ func updateDocCmd() *cobra.Command {
 		Use:   "update",
 		Short: "update a document",
 		Run: func(cmd *cobra.Command, args []string) {
-			if projectID == "" {
-				logrus.Errorf("missing required flag: --project-id")
-				return
-			}
-
 			if docID == "" {
 				logrus.Errorf("missing required flag: --doc-id")
 				return
@@ -194,11 +180,10 @@ func updateDocCmd() *cobra.Command {
 
 			ctx := tokenContext()
 			_, err = client.UpdateDocument(ctx, &v1.UpdateDocumentRequest{
-				ProjectId: projectID,
-				Id:        docID,
-				Title:     &docTitle,
-				Content:   &content,
-				Version:   -1,
+				Id:      docID,
+				Title:   &docTitle,
+				Content: &content,
+				Version: -1,
 			})
 			if err != nil {
 				logrus.Error(err)
@@ -209,7 +194,6 @@ func updateDocCmd() *cobra.Command {
 		},
 	}
 
-	command.Flags().StringVarP(&projectID, "project", "p", "", "project id to update the document in")
 	command.Flags().StringVarP(&docID, "doc-id", "d", "", "document id to update")
 	command.Flags().StringVarP(&docTitle, "title", "t", "", "title of the document")
 	command.Flags().StringVarP(&content, "content", "c", "", "content of the document")
