@@ -280,3 +280,23 @@ func (d DocumentService) DeleteDocument(ctx context.Context, request *v1.DeleteD
 		},
 	}, nil
 }
+
+// EraseDocument erases a document.
+func (d DocumentService) EraseDocument(ctx context.Context, request *v1.EraseDocumentRequest) (*v1.EraseDocumentResponse, error) {
+	id, err := uuid.Parse(request.GetId())
+	if err != nil {
+		return nil, err
+	}
+
+	// hard delete the document
+	err = d.db.WithContext(ctx).Unscoped().Delete(&model.Document{}, id.String()).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &v1.EraseDocumentResponse{
+		Document: &v1.Document{
+			Id: id.String(),
+		},
+	}, nil
+}

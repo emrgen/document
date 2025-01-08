@@ -88,6 +88,14 @@ message DeleteDocumentResponse {
   Document document = 1;
 }
 
+message EraseDocumentRequest {
+  string id = 1 [(validate.rules).string.uuid = true];
+}
+
+message EraseDocumentResponse {
+  Document document = 1;
+}
+
 service DocumentService {
   rpc CreateDocument(CreateDocumentRequest) returns (CreateDocumentResponse) {
     option (google.api.http) = {
@@ -143,6 +151,17 @@ service DocumentService {
       summary: "Delete a document"
       description: "Delete a document"
       operation_id: "DeleteDocument"
+    };
+  }
+
+  rpc EraseDocument(EraseDocumentRequest) returns (EraseDocumentResponse) {
+    option (google.api.http) = {
+      delete: "/v1/documents/{id}/erase"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Erase a document"
+      description: "Erase a document"
+      operation_id: "EraseDocument"
     };
   }
 }
