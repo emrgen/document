@@ -90,6 +90,16 @@ message EraseDocumentRequest {
 message EraseDocumentResponse {
   Document document = 1;
 }
+
+
+message PublishDocumentRequest {
+  string id = 1 [(validate.rules).string.uuid = true];
+}
+
+message PublishDocumentResponse {
+  Document document = 1;
+}
+
 service DocumentService {
   rpc CreateDocument(CreateDocumentRequest) returns (CreateDocumentResponse) {
     option (google.api.http) = {
@@ -156,6 +166,52 @@ service DocumentService {
       summary: "Erase a document"
       description: "Erase a document"
       operation_id: "EraseDocument"
+    };
+  }
+}
+
+
+message GetPublishedDocumentRequest {
+  string id = 1 [(validate.rules).string.uuid = true];
+  string version = 2;
+}
+
+message GetPublishedDocumentResponse {
+  Document document = 1;
+}
+
+message ListPublishedDocumentsRequest {
+  string project_id = 1 [(validate.rules).string.uuid = true];
+  int32 page = 5;
+  int32 per_page = 6;
+}
+
+message ListPublishedDocumentsResponse {
+  repeated Document documents = 1;
+  int32 total = 2;
+}
+
+
+service PublishedDocumentService {
+  rpc GetPublishedDocument(GetPublishedDocumentRequest) returns (GetPublishedDocumentResponse) {
+    option (google.api.http) = {
+      get: "/v1/published/{id}/version/{version}"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get a published document"
+      description: "Get a published document"
+      operation_id: "GetPublishedDocument"
+    };
+  }
+
+  rpc ListPublishedDocuments(ListPublishedDocumentsRequest) returns (ListPublishedDocumentsResponse) {
+    option (google.api.http) = {
+      get: "/v1/published"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "List published documents"
+      description: "List published documents"
+      operation_id: "ListPublishedDocuments"
     };
   }
 }
