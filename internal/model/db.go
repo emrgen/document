@@ -27,11 +27,11 @@ func Migrate(db *gorm.DB) error {
 		return err
 	}
 
-	if err := db.AutoMigrate(&Backlink{}); err != nil {
+	if err := db.AutoMigrate(&Link{}); err != nil {
 		return err
 	}
 
-	if err := db.AutoMigrate(&PublishedBacklink{}); err != nil {
+	if err := db.AutoMigrate(&PublishedLink{}); err != nil {
 		return err
 	}
 

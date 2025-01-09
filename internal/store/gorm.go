@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func NewGormStore(db *gorm.DB) *GormStore {
@@ -20,25 +21,34 @@ type GormStore struct {
 	db *gorm.DB
 }
 
-func (g *GormStore) CreateBacklinks(ctx context.Context, backlinks []*model.Backlink) error {
-	return g.db.Create(backlinks).Error
+func (g *GormStore) CreateBacklinks(ctx context.Context, links []*model.Link) error {
+	return g.db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "source_id"}, {Name: "target_id"}},
+		DoUpdates: clause.AssignmentColumns([]string{"source_id", "target_id"}),
+	}).Create(links).Error
 }
 
-func (g *GormStore) DeleteBacklinks(ctx context.Context, backlinks []*model.Backlink) error {
-	return g.db.Delete(backlinks).Error
+func (g *GormStore) DeleteBacklinks(ctx context.Context, links []*model.Link) error {
+	for _, link := range links {
+		if err := g.db.Delete(link).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // ListBacklinks returns a list of backlinks for a document
-func (g *GormStore) ListBacklinks(ctx context.Context, sourceID uuid.UUID) ([]*model.Backlink, error) {
-	var backlinks []*model.Backlink
-	err := g.db.Where("source_id = ? AND", sourceID).Find(&backlinks).Error
+func (g *GormStore) ListBacklinks(ctx context.Context, targetID uuid.UUID) ([]*model.Link, error) {
+	var backlinks []*model.Link
+	err := g.db.Where("target_id = ?", targetID).Find(&backlinks).Error
 	return backlinks, err
 }
 
 // ListPublishedBacklinks returns a list of backlinks for a published document
-func (g *GormStore) ListPublishedBacklinks(ctx context.Context, sourceID uuid.UUID, sourceVersion string) ([]*model.PublishedBacklink, error) {
-	var backlinks []*model.PublishedBacklink
-	err := g.db.Where("source_id = ? AND source_version = ?", sourceID, sourceVersion).Find(&backlinks).Error
+func (g *GormStore) ListPublishedBacklinks(ctx context.Context, targetID uuid.UUID, targetVersion string) ([]*model.PublishedLink, error) {
+	var backlinks []*model.PublishedLink
+	err := g.db.Where("target_id = ? AND target_version = ?", targetID, targetVersion).Find(&backlinks).Error
 	return backlinks, err
 }
 

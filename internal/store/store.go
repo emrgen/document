@@ -33,11 +33,11 @@ type DocumentStore interface {
 	// PublishDocument creates a new published document.
 	PublishDocument(ctx context.Context, doc *model.PublishedDocument) error
 	// CreateBacklinks creates a new backlink.
-	CreateBacklinks(ctx context.Context, backlinks []*model.Backlink) error
+	CreateBacklinks(ctx context.Context, links []*model.Link) error
 	// DeleteBacklinks deletes backlinks by source ID.
-	DeleteBacklinks(ctx context.Context, backlinks []*model.Backlink) error
+	DeleteBacklinks(ctx context.Context, links []*model.Link) error
 	//	ListBacklinks retrieves a list of backlinks by target ID.
-	ListBacklinks(ctx context.Context, targetID uuid.UUID) ([]*model.Backlink, error)
+	ListBacklinks(ctx context.Context, targetID uuid.UUID) ([]*model.Link, error)
 }
 
 type DocumentBackupStore interface {
@@ -67,5 +67,5 @@ type PublishedDocumentStore interface {
 	// GetLatestPublishedDocumentMeta retrieves the latest published document meta by ID.
 	GetLatestPublishedDocumentMeta(ctx context.Context, id uuid.UUID) (*model.LatestPublishedDocumentMeta, error)
 	// ListPublishedBacklinks retrieves a list of backlinks by source ID.
-	ListPublishedBacklinks(ctx context.Context, sourceID uuid.UUID, sourceVersion string) ([]*model.PublishedBacklink, error)
+	ListPublishedBacklinks(ctx context.Context, targetID uuid.UUID, targetVersion string) ([]*model.PublishedLink, error)
 }

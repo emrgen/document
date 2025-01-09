@@ -23,7 +23,12 @@ func init() {
 	rootCmd.AddCommand(updateDocCmd())
 	rootCmd.AddCommand(publishDocCmd())
 	rootCmd.AddCommand(listDocVersionsCmd())
-	rootCmd.AddCommand(listBacklinksCmd())
+
+	linkCmd := addLinkCmd()
+	rootCmd.AddCommand(linkCmd)
+	linkCmd.AddCommand(listLinksCmd())
+
+	rootCmd.AddCommand(removeLinkCmd())
 }
 
 func createDocCmd() *cobra.Command {
@@ -413,18 +418,139 @@ func listDocVersionsCmd() *cobra.Command {
 	return command
 }
 
-func listBacklinksCmd() *cobra.Command {
+func addLinkCmd() *cobra.Command {
+	var sourceID string
+	var targetID string
+
+	command := &cobra.Command{
+		Use:     "link",
+		Short:   "add a link between two documents",
+		Example: "document link -s <source-id> -t <target-id>",
+
+		Run: func(cmd *cobra.Command, args []string) {
+			if sourceID == "" {
+				color.Red("missing required flag: --source-id")
+				cmd.Usage()
+				return
+			}
+
+			if targetID == "" {
+				color.Red("missing required flag: --target-id")
+				return
+			}
+
+			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+			defer conn.Close()
+			client := v1.NewDocumentServiceClient(conn)
+
+			res, err := client.GetDocument(tokenContext(), &v1.GetDocumentRequest{
+				Id: sourceID,
+			})
+			if err != nil {
+				return
+			}
+
+			if res.Document.Links == nil {
+				res.Document.Links = make(map[string]string)
+			}
+			res.Document.Links[targetID] = ""
+
+			_, err = client.UpdateDocument(tokenContext(), &v1.UpdateDocumentRequest{
+				Id:      sourceID,
+				Links:   res.Document.Links,
+				Version: res.Document.Version + 1,
+			})
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+		},
+	}
+
+	command.Flags().StringVarP(&sourceID, "source-id", "s", "", "source document id")
+	command.Flags().StringVarP(&targetID, "target-id", "t", "", "target document id")
+
+	return command
+}
+
+func removeLinkCmd() *cobra.Command {
+	var sourceID string
+	var targetID string
+
+	command := &cobra.Command{
+		Use:     "unlink",
+		Short:   "remove a link between two documents",
+		Example: "document unlink -s <source-id> -t <target-id>",
+
+		Run: func(cmd *cobra.Command, args []string) {
+			if sourceID == "" {
+				color.Red("missing required flag: --source-id")
+				cmd.Usage()
+				return
+			}
+
+			if targetID == "" {
+				color.Red("missing required flag: --target-id")
+				return
+			}
+
+			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+			defer conn.Close()
+			client := v1.NewDocumentServiceClient(conn)
+
+			res, err := client.GetDocument(tokenContext(), &v1.GetDocumentRequest{
+				Id: sourceID,
+			})
+			if err != nil {
+				return
+			}
+
+			if res.Document.Links == nil {
+				res.Document.Links = make(map[string]string)
+			}
+			delete(res.Document.Links, targetID)
+
+			_, err = client.UpdateDocument(tokenContext(), &v1.UpdateDocumentRequest{
+				Id:      sourceID,
+				Links:   res.Document.Links,
+				Version: res.Document.Version + 1,
+			})
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+		},
+	}
+
+	command.Flags().StringVarP(&sourceID, "source-id", "s", "", "source document id")
+	command.Flags().StringVarP(&targetID, "target-id", "t", "", "target document id")
+
+	return command
+}
+
+func listLinksCmd() *cobra.Command {
 	var docID string
 	var published bool
 	var version string
 	var backlink bool
 
 	command := &cobra.Command{
-		Use:   "links",
-		Short: "list links",
+		Use:        "list",
+		Short:      "list links related to a document",
+		Example:    "document link -d <doc-id> --published --backlink",
+		SuggestFor: []string{"links"},
 		Run: func(cmd *cobra.Command, args []string) {
 			if docID == "" {
 				logrus.Errorf("missing required flag: --doc-id")
+				cmd.Help()
 				return
 			}
 
@@ -451,13 +577,22 @@ func listBacklinksCmd() *cobra.Command {
 					return
 				}
 
-				printField("Links", res.Document.Links)
+				if res.Document.Links == nil || len(res.Document.Links) == 0 {
+					logrus.Infof("no links found")
+				}
 
-				//table := tablewriter.NewWriter(os.Stdout)
-				//table.SetHeader([]string{"ID"})
-				//table.Render()
+				for link, v := range res.Document.Links {
+					data, err := json.Marshal(v)
+					if err != nil {
+						logrus.Warn(err)
+						continue
+					}
+					printField(link, string(data))
+				}
+				return
 			}
 
+			logrus.Infof("published: %t, backlink: %t", published, backlink)
 			if !published && !backlink {
 				conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
 				if err != nil {
@@ -475,7 +610,21 @@ func listBacklinksCmd() *cobra.Command {
 					return
 				}
 
-				printField("Links", res.Document.Links)
+				logrus.Infof("links: %v", res.Document.Links)
+
+				if res.Document.Links == nil || len(res.Document.Links) == 0 {
+					logrus.Infof("no links found")
+				}
+
+				for link, v := range res.Document.Links {
+					data, err := json.Marshal(v)
+					if err != nil {
+						logrus.Warn(err)
+						continue
+					}
+					printField(link, string(data))
+				}
+				return
 			}
 
 			if published && backlink {
@@ -509,6 +658,7 @@ func listBacklinksCmd() *cobra.Command {
 				}
 
 				table.Render()
+				return
 			}
 
 			if !published && backlink {
@@ -536,6 +686,7 @@ func listBacklinksCmd() *cobra.Command {
 				}
 
 				table.Render()
+				return
 			}
 
 		},

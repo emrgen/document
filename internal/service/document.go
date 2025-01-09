@@ -138,11 +138,24 @@ func (d DocumentService) GetDocument(ctx context.Context, request *v1.GetDocumen
 		return nil, err
 	}
 
+	links := make(map[string]string)
+	if doc.Links != "" {
+		linksData, err := d.compress.Decode([]byte(doc.Links))
+		if err != nil {
+			return nil, err
+		}
+		err = json.Unmarshal(linksData, &links)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return &v1.GetDocumentResponse{
 		Document: &v1.Document{
 			Id:        doc.ID,
 			Content:   string(contentData),
 			Meta:      string(metaData),
+			Links:     links,
 			Version:   doc.Version,
 			CreatedAt: timestamppb.New(doc.CreatedAt),
 			UpdatedAt: timestamppb.New(doc.UpdatedAt),
@@ -224,6 +237,7 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 			Version: doc.Version,
 			Meta:    doc.Meta,
 			Content: doc.Content,
+			Links:   doc.Links,
 		}
 		if err != nil {
 			return err
@@ -262,13 +276,17 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 			}
 
 			if request.Links != nil {
-				linksContent, err := d.compress.Encode([]byte(request.GetLinks()))
+				links := request.GetLinks()
+				patch, err := json.Marshal(links)
+				if err != nil {
+					return err
+				}
+				linksContent, err := d.compress.Encode(patch)
 				if err != nil {
 					return err
 				}
 
 				jsonDoc := blocktree.NewJsonDoc(linksContent)
-				patch := blocktree.JsonPatch(request.GetLinks())
 
 				err = jsonDoc.Apply(patch)
 				if err != nil {
@@ -340,7 +358,12 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 			}
 
 			if request.Links != nil {
-				linksContent, err := d.compress.Encode([]byte(request.GetLinks()))
+				links := request.GetLinks()
+				linksData, err := json.Marshal(links)
+				if err != nil {
+					return err
+				}
+				linksContent, err := d.compress.Encode(linksData)
 				if err != nil {
 					return err
 				}
@@ -356,7 +379,7 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 			}
 			doc.Version = doc.Version + 1
 
-			if clone.Meta == doc.Meta && clone.Content == doc.Content {
+			if clone.Meta == doc.Meta && clone.Content == doc.Content && clone.Links == doc.Links {
 				return errors.New("document is not changed, skipping update")
 			}
 
@@ -364,6 +387,81 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 			err = tx.UpdateDocument(ctx, doc)
 			if err != nil {
 				return err
+			}
+
+			// check if the links are changed and update the backlinks
+			if clone.Links != doc.Links {
+				logrus.Infof("old links: %v, new links: %v", clone.Links, request.GetLinks())
+
+				newLinks := request.GetLinks()
+				oldLinks := make(map[string]interface{})
+				err = json.Unmarshal([]byte(clone.Links), &oldLinks)
+				if err != nil {
+					return err
+				}
+
+				// collect broken links
+				brokenLinks := make(map[string]interface{})
+				for key := range oldLinks {
+					if _, ok := newLinks[key]; !ok {
+						brokenLinks[key] = nil
+					}
+				}
+
+				// collect new links
+				newLinksMap := make(map[string]interface{})
+				for key := range newLinks {
+					logrus.Infof("key %v", key)
+					if _, ok := oldLinks[key]; !ok {
+						newLinksMap[key] = nil
+					}
+				}
+
+				// old link models
+				var oldLinkTargets []uuid.UUID
+				for key := range oldLinks {
+					id, err := uuid.Parse(key)
+					if err != nil {
+						return err
+					}
+					oldLinkTargets = append(oldLinkTargets, id)
+				}
+
+				// new link models
+				var newLinkModels []*model.Link
+				for key := range newLinksMap {
+					newLinkModels = append(newLinkModels, &model.Link{
+						SourceID: doc.ID,
+						TargetID: key,
+					})
+				}
+
+				// old link models
+				var oldLinkModels []*model.Link
+				for key := range brokenLinks {
+					oldLinkModels = append(oldLinkModels, &model.Link{
+						SourceID: doc.ID,
+						TargetID: key,
+					})
+				}
+
+				logrus.Infof("old links: %v, new links: %v", oldLinkModels, newLinkModels)
+
+				if len(oldLinkModels) != 0 {
+					// delete old links
+					err = tx.DeleteBacklinks(ctx, oldLinkModels)
+					if err != nil {
+						return err
+					}
+				}
+
+				if len(newLinkModels) != 0 {
+					// create new links
+					err = tx.CreateBacklinks(ctx, newLinkModels)
+					if err != nil {
+						return err
+					}
+				}
 			}
 		}
 
