@@ -64,7 +64,7 @@ message ListDocumentsResponse {
 enum UpdateKind {
   TEXT = 0;
   JSON = 1;
-  JSONDIFF = 2;
+  JSONPATCH = 2;
 }
 
 message UpdateDocumentRequest {

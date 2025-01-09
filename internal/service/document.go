@@ -196,6 +196,12 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 	err = d.store.Transaction(ctx, func(tx store.Store) error {
 		// Get document from database
 		doc, err = tx.GetDocument(ctx, uuid.MustParse(request.GetId()))
+		clone := &model.Document{
+			ID:      doc.ID,
+			Version: doc.Version,
+			Meta:    doc.Meta,
+			Content: doc.Content,
+		}
 		if err != nil {
 			return err
 		}
@@ -210,7 +216,7 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 		}
 
 		// if the version clocks matches, update the document
-		if versionMatch && request.GetKind() == v1.UpdateKind_JSONDIFF {
+		if versionMatch && request.GetKind() == v1.UpdateKind_JSONPATCH {
 			if request.Meta != nil {
 				metaContent, err := d.compress.Encode([]byte(request.GetMeta()))
 				if err != nil {
@@ -220,10 +226,14 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 				jsonDoc := blocktree.NewJsonDoc(metaContent)
 				patch := blocktree.JsonPatch(request.GetMeta())
 
+				logrus.Infof("applying patch: %v", patch)
+
 				err = jsonDoc.Apply(patch)
 				if err != nil {
 					return err
 				}
+
+				logrus.Infof("patched content: %v", jsonDoc.String())
 
 				data, err := d.compress.Encode([]byte(jsonDoc.String()))
 				if err != nil {
@@ -266,7 +276,7 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 
 		// explicitly overwrite the document
 		// or the version matches and the kind is not JSONDIFF as JSONDIFF is handled above
-		if overwrite || versionMatch && request.GetKind() != v1.UpdateKind_JSONDIFF {
+		if overwrite || versionMatch && request.GetKind() != v1.UpdateKind_JSONPATCH {
 			// TODO: check if document hash is the same
 
 			// Create a backup of the document
@@ -297,6 +307,10 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 				doc.Content = string(contentData)
 			}
 			doc.Version = doc.Version + 1
+
+			if clone.Meta == doc.Meta && clone.Content == doc.Content {
+				return errors.New("document is not changed, skipping update")
+			}
 
 			logrus.Infof("updating document id: %v, version: %v", doc.ID, doc.Version)
 			err = tx.UpdateDocument(ctx, doc)
