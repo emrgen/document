@@ -45,6 +45,30 @@ type DocumentService struct {
 	v1.UnimplementedDocumentServiceServer
 }
 
+func (d DocumentService) ListBacklinks(ctx context.Context, request *v1.ListBacklinksRequest) (*v1.ListBacklinksResponse, error) {
+	docID, err := uuid.Parse(request.GetDocumentId())
+	if err != nil {
+		return nil, err
+	}
+
+	backlinks, err := d.store.ListBacklinks(ctx, docID, request.GetVersion())
+	if err != nil {
+		return nil, err
+	}
+
+	var backlinksProto []*v1.Document
+	for _, source := range backlinks {
+		backlinksProto = append(backlinksProto, &v1.Document{
+			Id:      source.SourceID,
+			Version: source.SourceVersion,
+		})
+	}
+
+	return &v1.ListBacklinksResponse{
+		Documents: backlinksProto,
+	}, nil
+}
+
 // CreateDocument creates a new document.
 func (d DocumentService) CreateDocument(ctx context.Context, request *v1.CreateDocumentRequest) (*v1.CreateDocumentResponse, error) {
 	var err error

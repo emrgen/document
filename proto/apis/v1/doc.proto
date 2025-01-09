@@ -112,6 +112,7 @@ message PublishDocumentResponse {
 message ListBacklinksRequest {
   string project_id = 1 [(validate.rules).string.uuid = true];
   string document_id = 2 [(validate.rules).string.uuid = true];
+  int64 version = 3;
   int32 page = 5;
   int32 per_page = 6;
 }
@@ -259,6 +260,7 @@ message ListPublishedDocumentVersionsResponse {
 message ListPublishedBacklinksRequest {
   string project_id = 1 [(validate.rules).string.uuid = true];
   string document_id = 2 [(validate.rules).string.uuid = true];
+  string version = 3;
   int32 page = 5;
   int32 per_page = 6;
 }

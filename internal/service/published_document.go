@@ -31,6 +31,30 @@ type PublishedDocumentService struct {
 	v1.UnimplementedPublishedDocumentServiceServer
 }
 
+func (p *PublishedDocumentService) ListPublishedBacklinks(ctx context.Context, request *v1.ListPublishedBacklinksRequest) (*v1.ListPublishedBacklinksResponse, error) {
+	docID, err := uuid.Parse(request.GetDocumentId())
+	if err != nil {
+		return nil, err
+	}
+
+	backlinks, err := p.store.ListPublishedBacklinks(ctx, docID, request.GetVersion())
+	if err != nil {
+		return nil, err
+	}
+
+	var backlinksProto []*v1.PublishedDocument
+	for _, source := range backlinks {
+		backlinksProto = append(backlinksProto, &v1.PublishedDocument{
+			Id:      source.SourceID,
+			Version: source.SourceVersion,
+		})
+	}
+
+	return &v1.ListPublishedBacklinksResponse{
+		Documents: backlinksProto,
+	}, nil
+}
+
 // GetPublishedDocument retrieves a published document by ID.
 func (p *PublishedDocumentService) GetPublishedDocument(ctx context.Context, request *v1.GetPublishedDocumentRequest) (*v1.GetPublishedDocumentResponse, error) {
 	id, err := uuid.Parse(request.GetId())

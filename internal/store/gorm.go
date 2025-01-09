@@ -20,6 +20,28 @@ type GormStore struct {
 	db *gorm.DB
 }
 
+func (g *GormStore) CreateBacklinks(ctx context.Context, backlinks []*model.Backlink) error {
+	return g.db.Create(backlinks).Error
+}
+
+func (g *GormStore) DeleteBacklinks(ctx context.Context, backlinks []*model.Backlink) error {
+	return g.db.Delete(backlinks).Error
+}
+
+// ListBacklinks returns a list of backlinks for a document
+func (g *GormStore) ListBacklinks(ctx context.Context, targetID uuid.UUID, targetVersion int64) ([]*model.Backlink, error) {
+	var backlinks []*model.Backlink
+	err := g.db.Where("source_id = ? AND source_version = ?", targetID, targetVersion).Find(&backlinks).Error
+	return backlinks, err
+}
+
+// ListPublishedBacklinks returns a list of backlinks for a published document
+func (g *GormStore) ListPublishedBacklinks(ctx context.Context, sourceID uuid.UUID, sourceVersion string) ([]*model.PublishedBacklink, error) {
+	var backlinks []*model.PublishedBacklink
+	err := g.db.Where("source_id = ? AND source_version = ?", sourceID, sourceVersion).Find(&backlinks).Error
+	return backlinks, err
+}
+
 func (g *GormStore) ListDocumentsFromIDs(ctx context.Context, ids []uuid.UUID) ([]*model.Document, error) {
 	var docs []*model.Document
 	err := g.db.Where("id in (?)", ids).Find(&docs).Error
