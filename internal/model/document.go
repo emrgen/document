@@ -10,7 +10,7 @@ import (
 type Document struct {
 	gorm.Model
 	ID          string `gorm:"primaryKey;uuid;not null;"`
-	Version     int64  `gorm:"primaryKey"`
+	Version     int64
 	ProjectID   string `gorm:"uuid;not null"`
 	Meta        string `gorm:"not null"`
 	Content     string `gorm:"not null"`

@@ -190,6 +190,7 @@ func (d DocumentService) ListDocuments(ctx context.Context, request *v1.ListDocu
 func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateDocumentRequest) (*v1.UpdateDocumentResponse, error) {
 	var err error
 	var doc *model.Document
+
 	err = d.store.Transaction(ctx, func(tx store.Store) error {
 		// Get document from database
 		doc, err = tx.GetDocument(ctx, uuid.MustParse(request.GetId()))
@@ -206,7 +207,7 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 			return status.New(codes.FailedPrecondition, fmt.Sprintf("current version: %d, expected version %d, provider version: %d, ", doc.Version, doc.Version+1, request.GetVersion())).Err()
 		}
 
-		// if the version matches, update the document
+		// if the version clocks matches, update the document
 		if versionMatch && request.GetKind() == v1.UpdateKind_JSONDIFF {
 			if request.Meta != nil {
 				metaContent, err := d.compress.Encode([]byte(request.GetMeta()))
@@ -251,15 +252,14 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 
 				doc.Content = string(data)
 
-				logrus.Infof("updating document id: %v, version: %v", doc.ID, doc.Version)
-				err = tx.UpdateDocument(ctx, doc)
-				if err != nil {
-					return err
-				}
 			}
-
 			// TODO: if the parts are too large, we need to merge them
 			doc.Version = doc.Version + 1
+			logrus.Infof("updating document id: %v, version: %v", doc.ID, doc.Version)
+			err = tx.UpdateDocument(ctx, doc)
+			if err != nil {
+				return err
+			}
 		}
 
 		// explicitly overwrite the document
@@ -300,7 +300,7 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 				return err
 			}
 		}
-		
+
 		// TODO: Set document in cache
 		//d.redis.Set(ctx, fmt.Sprintf("document:%s/version:%s", doc.ID, doc.Version), doc, 0)
 

@@ -162,10 +162,6 @@ func getDocCmd() *cobra.Command {
 				table.Render()
 			}
 
-			if version != "" {
-
-			}
-
 			if !latest && version == "" {
 				conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
 				if err != nil {
@@ -310,7 +306,7 @@ func updateDocCmd() *cobra.Command {
 				req.Meta = &data
 			}
 
-			_, err = client.UpdateDocument(tokenContext(), req)
+			res, err := client.UpdateDocument(tokenContext(), req)
 			if err != nil {
 				logrus.Error(err)
 				return
@@ -318,7 +314,7 @@ func updateDocCmd() *cobra.Command {
 
 			table := tablewriter.NewWriter(os.Stdout)
 			table.SetHeader([]string{"ID", "Title", "Version"})
-			table.Append([]string{docID, docTitle, strconv.FormatInt(version, 10)})
+			table.Append([]string{docID, docTitle, strconv.FormatInt(int64(res.Version), 10)})
 			table.Render()
 		},
 	}
