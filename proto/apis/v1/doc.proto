@@ -98,9 +98,9 @@ message EraseDocumentResponse {
   Document document = 1;
 }
 
-
 message PublishDocumentRequest {
-  string id = 1 [(validate.rules).string.uuid = true];
+  string document_id = 1 [(validate.rules).string.uuid = true];
+  optional string version = 2; // semver
 }
 
 message PublishDocumentResponse {
@@ -175,16 +175,34 @@ service DocumentService {
       operation_id: "EraseDocument"
     };
   }
+
+  rpc PublishDocument(PublishDocumentRequest) returns (PublishDocumentResponse) {
+    option (google.api.http) = {
+      post: "/v1/documents/{document_id}/publish"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Publish a document"
+      description: "Publish a document"
+      operation_id: "PublishDocument"
+    };
+  }
 }
 
+message PublishedDocument {
+  string id = 1 [(validate.rules).string.uuid = true];
+  string version = 2; // semver
+  string meta = 3;
+  string content = 4;
+}
 
 message GetPublishedDocumentRequest {
   string id = 1 [(validate.rules).string.uuid = true];
-  string version = 2;
+  string version = 2; // semver
 }
 
 message GetPublishedDocumentResponse {
-  Document document = 1;
+  PublishedDocument document = 1;
 }
 
 message ListPublishedDocumentsRequest {
@@ -194,10 +212,24 @@ message ListPublishedDocumentsRequest {
 }
 
 message ListPublishedDocumentsResponse {
-  repeated Document documents = 1;
+  repeated PublishedDocument documents = 1;
   int32 total = 2;
 }
 
+message ListPublishedDocumentVersionsRequest {
+  string id = 1 [(validate.rules).string.uuid = true];
+}
+
+message DocVersion {
+  string version = 1;
+  google.protobuf.Timestamp created_at = 2;
+}
+
+message ListPublishedDocumentVersionsResponse {
+  string id = 1 [(validate.rules).string.uuid = true];
+  repeated DocVersion versions = 2;
+  string latest_version = 3;
+}
 
 service PublishedDocumentService {
   rpc GetPublishedDocument(GetPublishedDocumentRequest) returns (GetPublishedDocumentResponse) {
@@ -219,6 +251,17 @@ service PublishedDocumentService {
       summary: "List published documents"
       description: "List published documents"
       operation_id: "ListPublishedDocuments"
+    };
+  }
+
+  rpc ListPublishedDocumentVersions(ListPublishedDocumentVersionsRequest) returns (ListPublishedDocumentVersionsResponse) {
+    option (google.api.http) = {
+      get: "/v1/published/{id}/versions"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "List published document versions"
+      description: "List published document versions"
+      operation_id: "ListPublishedDocumentVersions"
     };
   }
 }

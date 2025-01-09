@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/Masterminds/semver"
 	v1 "github.com/emrgen/document/apis/v1"
 	"github.com/google/uuid"
 	"github.com/olekukonko/tablewriter"
@@ -24,6 +25,8 @@ func init() {
 	rootCmd.AddCommand(getDocCmd())
 	rootCmd.AddCommand(listDocCmd())
 	rootCmd.AddCommand(updateDocCmd())
+	rootCmd.AddCommand(publishDocCmd())
+	rootCmd.AddCommand(listDocVersionsCmd())
 }
 
 func createDocCmd() *cobra.Command {
@@ -97,6 +100,8 @@ func createDocCmd() *cobra.Command {
 
 func getDocCmd() *cobra.Command {
 	var docID string
+	var latest bool
+	var version string
 
 	command := &cobra.Command{
 		Use:   "get",
@@ -107,42 +112,100 @@ func getDocCmd() *cobra.Command {
 				return
 			}
 
-			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
-			if err != nil {
-				logrus.Error(err)
-				return
-			}
-			defer conn.Close()
-			client := v1.NewDocumentServiceClient(conn)
+			if latest || version != "" {
+				docVersion := version
+				if version != "" && version != "latest" {
+					// check if valid semver
+					_, err := semver.NewVersion(version)
+					if err != nil {
+						logrus.Error(err)
+						return
+					}
+				}
 
-			res, err := client.GetDocument(tokenContext(), &v1.GetDocumentRequest{
-				Id: docID,
-			})
-			if err != nil {
-				logrus.Error(err)
-				return
+				conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+				if err != nil {
+					logrus.Error(err)
+					return
+				}
+				defer conn.Close()
+				client := v1.NewPublishedDocumentServiceClient(conn)
+				if err != nil {
+					logrus.Error(err)
+					return
+				}
+
+				res, err := client.GetPublishedDocument(tokenContext(), &v1.GetPublishedDocumentRequest{
+					Id:      docID,
+					Version: docVersion,
+				})
+				if err != nil {
+					return
+				}
+
+				table := tablewriter.NewWriter(os.Stdout)
+				table.SetHeader([]string{"ID", "Title", "Version", "Latest"})
+				var meta map[string]interface{}
+				err = json.Unmarshal([]byte(res.Document.Meta), &meta)
+				if err != nil {
+					logrus.Error(err)
+					return
+				}
+
+				title, ok := meta["title"].(string)
+				if !ok {
+					title = ""
+				}
+
+				table.Append([]string{res.Document.Id, title, res.Document.Version, "true"})
+
+				table.Render()
 			}
 
-			table := tablewriter.NewWriter(os.Stdout)
-			table.SetHeader([]string{"ID", "Created At"})
-			var meta map[string]interface{}
-			err = json.Unmarshal([]byte(res.Document.Meta), &meta)
-			if err != nil {
-				logrus.Error(err)
-				return
+			if version != "" {
+
 			}
 
-			title, ok := meta["title"].(string)
-			if !ok {
-				title = ""
+			if !latest && version == "" {
+				conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+				if err != nil {
+					logrus.Error(err)
+					return
+				}
+				defer conn.Close()
+				client := v1.NewDocumentServiceClient(conn)
+
+				res, err := client.GetDocument(tokenContext(), &v1.GetDocumentRequest{
+					Id: docID,
+				})
+				if err != nil {
+					logrus.Error(err)
+					return
+				}
+
+				table := tablewriter.NewWriter(os.Stdout)
+				table.SetHeader([]string{"ID", "Created At"})
+				var meta map[string]interface{}
+				err = json.Unmarshal([]byte(res.Document.Meta), &meta)
+				if err != nil {
+					logrus.Error(err)
+					return
+				}
+
+				title, ok := meta["title"].(string)
+				if !ok {
+					title = ""
+				}
+				table.Append([]string{res.Document.Id, res.Document.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
+				table.Render()
+				fmt.Printf("Title: %s\n", title)
+				fmt.Printf("Content: %s\n", res.Document.Content)
 			}
-			table.Append([]string{res.Document.Id, res.Document.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
-			table.Render()
-			fmt.Printf("Title: %s\n", title)
-			fmt.Printf("Content: %s\n", res.Document.Content)
 		},
 	}
 
+	command.Flags().StringVarP(&version, "version", "v", "", "version of the document to get")
+	command.Flags().BoolVarP(&latest, "latest", "l", false, "get the latest version of the document")
 	command.Flags().StringVarP(&docID, "doc-id", "d", "", "document id to get")
 
 	return command
@@ -264,6 +327,104 @@ func updateDocCmd() *cobra.Command {
 	command.Flags().StringVarP(&docTitle, "title", "t", "", "title of the document")
 	command.Flags().StringVarP(&content, "content", "c", "", "content of the document")
 	command.Flags().Int64VarP(&version, "version", "v", -1, "version of the document to update")
+
+	return command
+}
+
+func publishDocCmd() *cobra.Command {
+	var docID string
+	var version string
+
+	command := &cobra.Command{
+		Use:   "publish",
+		Short: "publish a document",
+		Run: func(cmd *cobra.Command, args []string) {
+			if docID == "" {
+				logrus.Errorf("missing required flag: --doc-id")
+				return
+			}
+
+			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+			defer conn.Close()
+			client := v1.NewDocumentServiceClient(conn)
+
+			req := &v1.PublishDocumentRequest{
+				DocumentId: docID,
+			}
+
+			if version != "" {
+				_, err := semver.NewVersion(version)
+				if err != nil {
+					logrus.Error(err)
+					return
+				}
+				req.Version = &version
+			}
+
+			_, err = client.PublishDocument(tokenContext(), req)
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+
+			logrus.Infof("document %s published", docID)
+		},
+	}
+
+	command.Flags().StringVarP(&docID, "doc-id", "d", "", "document id to publish")
+	command.Flags().StringVarP(&version, "version", "v", "", "version of the document to publish")
+
+	return command
+}
+
+func listDocVersionsCmd() *cobra.Command {
+	var docID string
+
+	command := &cobra.Command{
+		Use:   "versions",
+		Short: "list document versions",
+		Run: func(cmd *cobra.Command, args []string) {
+			if docID == "" {
+				logrus.Errorf("missing required flag: --doc-id")
+				return
+			}
+
+			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+			defer conn.Close()
+			client := v1.NewPublishedDocumentServiceClient(conn)
+
+			ctx := tokenContext()
+			res, err := client.ListPublishedDocumentVersions(ctx, &v1.ListPublishedDocumentVersionsRequest{
+				Id: docID,
+			})
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+
+			table := tablewriter.NewWriter(os.Stdout)
+			table.SetHeader([]string{"Version", "Created At"})
+			for _, v := range res.Versions {
+				if v.Version == res.LatestVersion {
+					table.Append([]string{v.Version + " (latest)", v.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
+				} else {
+					table.Append([]string{v.Version, v.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
+				}
+			}
+
+			table.Render()
+		},
+	}
+
+	command.Flags().StringVarP(&docID, "doc-id", "d", "", "document id to list versions")
 
 	return command
 }

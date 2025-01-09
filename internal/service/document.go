@@ -2,19 +2,20 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"github.com/Masterminds/semver"
 	"github.com/emrgen/blocktree"
-	"github.com/emrgen/document/internal/store"
-	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc/codes"
-	status "google.golang.org/grpc/status"
-
 	_ "github.com/emrgen/blocktree"
 	v1 "github.com/emrgen/document/apis/v1"
 	"github.com/emrgen/document/internal/cache"
 	"github.com/emrgen/document/internal/compress"
 	"github.com/emrgen/document/internal/model"
+	"github.com/emrgen/document/internal/store"
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gorm.io/gorm"
 )
@@ -24,12 +25,11 @@ var (
 )
 
 // NewDocumentService creates a new DocumentService.
-func NewDocumentService(db *gorm.DB, store store.Store, redis *cache.Redis) *DocumentService {
+func NewDocumentService(compress compress.Compress, store store.Store, redis *cache.Redis) *DocumentService {
 	service := &DocumentService{
-		db:       db,
 		redis:    redis,
 		store:    store,
-		compress: compress.NewNop(),
+		compress: compress,
 	}
 
 	return service
@@ -37,7 +37,6 @@ func NewDocumentService(db *gorm.DB, store store.Store, redis *cache.Redis) *Doc
 
 // DocumentService is a service for managing documents.
 type DocumentService struct {
-	db       *gorm.DB
 	compress compress.Compress
 	redis    *cache.Redis
 	store    store.Store
@@ -72,7 +71,7 @@ func (d DocumentService) CreateDocument(ctx context.Context, request *v1.CreateD
 		doc.ID = uuid.New().String()
 	}
 
-	err = d.db.Create(doc).Error
+	err = d.store.CreateDocument(ctx, doc)
 	if err != nil {
 		return nil, err
 	}
@@ -95,11 +94,14 @@ func (d DocumentService) GetDocument(ctx context.Context, request *v1.GetDocumen
 	// 	return doc, nil
 	// }
 
+	logrus.Infof("getting document id: %v", request.Id)
 	// Get document from database
-	doc, err := model.GetDocument(d.db, request.Id)
+	doc, err := d.store.GetDocument(ctx, uuid.MustParse(request.GetId()))
 	if err != nil {
 		return nil, err
 	}
+
+	logrus.Infof("document found id: %v, version: %v", doc.ID, doc.Version)
 
 	metaData, err := d.compress.Decode([]byte(doc.Meta))
 	if err != nil {
@@ -134,7 +136,12 @@ func (d DocumentService) ListDocuments(ctx context.Context, request *v1.ListDocu
 	// List documents from ids
 	if len(request.GetDocumentIds()) > 0 {
 		var documents []*model.Document
-		err = d.db.Where("project_id = ? AND id IN ?", projectID.String(), request.GetDocumentIds()).Find(&documents).Error
+		var ids []uuid.UUID
+		for _, id := range request.GetDocumentIds() {
+			ids = append(ids, uuid.MustParse(id))
+		}
+
+		documents, err = d.store.ListDocumentsFromIDs(ctx, ids)
 		if err != nil {
 			return nil, err
 		}
@@ -157,19 +164,17 @@ func (d DocumentService) ListDocuments(ctx context.Context, request *v1.ListDocu
 	}
 
 	// Get documents from database page by page
-	var documents []*model.Document
-	err = d.db.Where("project_id = ?", projectID.String()).Order("created_at DESC").Find(&documents).Error
+	documents, err := d.store.ListDocuments(ctx, projectID)
 	if err != nil {
 		return nil, err
 	}
-	var total int64
-	err = d.db.Model(&model.Document{}).Where("project_id = ?", projectID.String()).Count(&total).Error
 
 	var documentsProto []*v1.Document
 	for _, doc := range documents {
 		documentsProto = append(documentsProto, &v1.Document{
 			Id:        doc.ID,
 			Meta:      doc.Meta,
+			Version:   doc.Version,
 			CreatedAt: timestamppb.New(doc.CreatedAt),
 			UpdatedAt: timestamppb.New(doc.UpdatedAt),
 		})
@@ -177,7 +182,7 @@ func (d DocumentService) ListDocuments(ctx context.Context, request *v1.ListDocu
 
 	return &v1.ListDocumentsResponse{
 		Documents: documentsProto,
-		Total:     int32(total),
+		//Total:     int32(total),
 	}, nil
 }
 
@@ -185,9 +190,9 @@ func (d DocumentService) ListDocuments(ctx context.Context, request *v1.ListDocu
 func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateDocumentRequest) (*v1.UpdateDocumentResponse, error) {
 	var err error
 	var doc *model.Document
-	err = d.db.Transaction(func(tx *gorm.DB) error {
+	err = d.store.Transaction(ctx, func(tx store.Store) error {
 		// Get document from database
-		doc, err = model.GetDocument(d.db, request.Id)
+		doc, err = tx.GetDocument(ctx, uuid.MustParse(request.GetId()))
 		if err != nil {
 			return err
 		}
@@ -245,6 +250,12 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 				}
 
 				doc.Content = string(data)
+
+				logrus.Infof("updating document id: %v, version: %v", doc.ID, doc.Version)
+				err = tx.UpdateDocument(ctx, doc)
+				if err != nil {
+					return err
+				}
 			}
 
 			// TODO: if the parts are too large, we need to merge them
@@ -256,7 +267,7 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 		if overwrite || versionMatch && request.GetKind() != v1.UpdateKind_JSONDIFF {
 			// Create a backup of the document
 			logrus.Infof("creating backup for document id: %v, version: %v", doc.ID, doc.Version)
-			err = d.store.CreateDocumentBackup(ctx, &model.DocumentBackup{
+			err = tx.CreateDocumentBackup(ctx, &model.DocumentBackup{
 				ID:      doc.ID,
 				Version: doc.Version,
 				Meta:    doc.Meta,
@@ -282,16 +293,14 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 				doc.Content = string(contentData)
 			}
 			doc.Version = doc.Version + 1
-		}
 
-		// if the content is not nil, update the content
-		// otherwise, append the parts to the document
-		logrus.Infof("updating document id: %v, version: %v", doc.ID, doc.Version)
-		err = model.UpdateDocument(d.db, request.Id, doc)
-		if err != nil {
-			return err
+			logrus.Infof("updating document id: %v, version: %v", doc.ID, doc.Version)
+			err = tx.UpdateDocument(ctx, doc)
+			if err != nil {
+				return err
+			}
 		}
-
+		
 		// TODO: Set document in cache
 		//d.redis.Set(ctx, fmt.Sprintf("document:%s/version:%s", doc.ID, doc.Version), doc, 0)
 
@@ -315,7 +324,7 @@ func (d DocumentService) DeleteDocument(ctx context.Context, request *v1.DeleteD
 	}
 
 	// soft delete the document
-	err = model.DeleteDocument(d.db, id.String())
+	err = d.store.DeleteDocument(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -335,7 +344,7 @@ func (d DocumentService) EraseDocument(ctx context.Context, request *v1.EraseDoc
 	}
 
 	// hard delete the document
-	err = d.db.WithContext(ctx).Unscoped().Delete(&model.Document{}, id.String()).Error
+	err = d.store.EraseDocument(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -345,4 +354,90 @@ func (d DocumentService) EraseDocument(ctx context.Context, request *v1.EraseDoc
 			Id: id.String(),
 		},
 	}, nil
+}
+
+// PublishDocument publishes a document.
+func (d DocumentService) PublishDocument(ctx context.Context, request *v1.PublishDocumentRequest) (*v1.PublishDocumentResponse, error) {
+	docID, err := uuid.Parse(request.GetDocumentId())
+	if err != nil {
+		return nil, err
+	}
+
+	err = d.store.Transaction(ctx, func(tx store.Store) error {
+		// Get the document from the database
+		doc, err := tx.GetDocument(ctx, docID)
+		if err != nil {
+			return err
+		}
+
+		// Get latest published document
+		lastPublishedDocMeta, err := tx.GetLatestPublishedDocumentMeta(ctx, docID)
+		if err != nil && !errors.Is(gorm.ErrRecordNotFound, err) {
+			return err
+		}
+
+		// Create a new published document
+		if lastPublishedDocMeta == nil {
+			version, err := semver.NewVersion("0.0.1") // initial version
+			if err != nil {
+				return err
+			}
+
+			// if the version is provided, use it
+			if request.GetVersion() != "" {
+				newVersion, err := semver.NewVersion(request.GetVersion())
+				if err != nil {
+					return err
+				}
+				version = newVersion
+			}
+
+			latestDoc := &model.PublishedDocument{
+				ID:      doc.ID,
+				Version: version.String(),
+				Meta:    doc.Meta,
+				Content: doc.Content,
+			}
+			err = tx.PublishDocument(ctx, latestDoc)
+			if err != nil {
+				return err
+			}
+		} else {
+			// Update the published document
+			version, err := semver.NewVersion(lastPublishedDocMeta.Version)
+			if err != nil {
+				return err
+			}
+			*version = version.IncPatch()
+
+			if request.GetVersion() != "" {
+				newVersion, err := semver.NewVersion(request.GetVersion())
+				if err != nil {
+					return err
+				}
+				if newVersion.LessThan(version) {
+					return fmt.Errorf("new version must be greater than current version")
+				}
+
+				version = newVersion
+			}
+			latestDoc := &model.PublishedDocument{
+				ID:      doc.ID,
+				Version: version.String(),
+				Meta:    doc.Meta,
+				Content: doc.Content,
+			}
+			err = tx.PublishDocument(ctx, latestDoc)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &v1.PublishDocumentResponse{}, nil
 }

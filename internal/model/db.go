@@ -19,5 +19,13 @@ func Migrate(db *gorm.DB) error {
 		return err
 	}
 
+	if err := db.AutoMigrate(&LatestPublishedDocumentMeta{}); err != nil {
+		return err
+	}
+
+	if err := db.AutoMigrate(&LatestPublishedDocument{}); err != nil {
+		return err
+	}
+
 	return nil
 }

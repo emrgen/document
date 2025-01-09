@@ -7,6 +7,7 @@ import (
 	gatewayfile "github.com/black-06/grpc-gateway-file"
 	v1 "github.com/emrgen/document/apis/v1"
 	"github.com/emrgen/document/internal/cache"
+	"github.com/emrgen/document/internal/compress"
 	"github.com/emrgen/document/internal/config"
 	"github.com/emrgen/document/internal/service"
 	"github.com/emrgen/document/internal/store"
@@ -129,11 +130,17 @@ func Start(grpcPort, httpPort string) error {
 		return err
 	}
 
+	compressor := compress.NewNop()
+
 	// Register the grpc server
-	v1.RegisterDocumentServiceServer(grpcServer, service.NewDocumentService(rdb, docStore, redis))
+	v1.RegisterDocumentServiceServer(grpcServer, service.NewDocumentService(compressor, docStore, redis))
+	v1.RegisterPublishedDocumentServiceServer(grpcServer, service.NewPublishedDocumentService(compressor, docStore))
 
 	// Register the rest gateway
 	if err = v1.RegisterDocumentServiceHandlerFromEndpoint(context.TODO(), mux, endpoint, opts); err != nil {
+		return err
+	}
+	if err = v1.RegisterPublishedDocumentServiceHandlerFromEndpoint(context.TODO(), mux, endpoint, opts); err != nil {
 		return err
 	}
 

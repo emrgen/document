@@ -11,6 +11,7 @@ replace github.com/emrgen/tinys => ../tinys
 replace github.com/emrgen/blocktree => ../blocktree
 
 require (
+	github.com/Masterminds/semver v1.5.0
 	github.com/andybalholm/brotli v1.1.1
 	github.com/black-06/grpc-gateway-file v0.1.2
 	github.com/confluentinc/confluent-kafka-go v1.9.2
