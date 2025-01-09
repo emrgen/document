@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/Masterminds/semver"
 	v1 "github.com/emrgen/document/apis/v1"
+	"github.com/fatih/color"
 	"github.com/google/uuid"
 	"github.com/olekukonko/tablewriter"
 	"github.com/sirupsen/logrus"
@@ -14,11 +15,6 @@ import (
 	"os"
 	"strconv"
 )
-
-var documentCmd = &cobra.Command{
-	Use:   "doc",
-	Short: "document management",
-}
 
 func init() {
 	rootCmd.AddCommand(createDocCmd())
@@ -144,22 +140,14 @@ func getDocCmd() *cobra.Command {
 				}
 
 				table := tablewriter.NewWriter(os.Stdout)
-				table.SetHeader([]string{"ID", "Title", "Version", "Latest"})
-				var meta map[string]interface{}
-				err = json.Unmarshal([]byte(res.Document.Meta), &meta)
-				if err != nil {
-					logrus.Error(err)
-					return
-				}
+				table.SetHeader([]string{"ID", "Version", "Latest"})
 
-				title, ok := meta["title"].(string)
-				if !ok {
-					title = ""
-				}
-
-				table.Append([]string{res.Document.Id, title, res.Document.Version, "true"})
-
+				table.Append([]string{res.Document.Id, res.Document.Version, "true"})
 				table.Render()
+
+				cmd.Printf("Title: %s\n", getTitle(res.Document.Meta))
+				cmd.Printf("Content: %s\n", res.Document.Content)
+				color.Cyan("Title")
 			}
 
 			if !latest && version == "" {
@@ -188,14 +176,10 @@ func getDocCmd() *cobra.Command {
 					return
 				}
 
-				title, ok := meta["title"].(string)
-				if !ok {
-					title = ""
-				}
 				table.Append([]string{res.Document.Id, res.Document.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
 				table.Render()
-				fmt.Printf("Title: %s\n", title)
-				fmt.Printf("Content: %s\n", res.Document.Content)
+				printField("Title", getTitle(res.Document.Meta))
+				printField("Content", res.Document.Content)
 			}
 		},
 	}
@@ -237,9 +221,9 @@ func listDocCmd() *cobra.Command {
 			}
 
 			table := tablewriter.NewWriter(os.Stdout)
-			table.SetHeader([]string{"ID", "Meta", "Version", "CreatedAt"})
+			table.SetHeader([]string{"ID", "Title", "Version", "CreatedAt"})
 			for _, doc := range res.Documents {
-				table.Append([]string{doc.Id, doc.Meta, strconv.FormatInt(doc.Version, 10), doc.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
+				table.Append([]string{doc.Id, getTitle(doc.Meta), strconv.FormatInt(doc.Version, 10), doc.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
 			}
 
 			table.Render()
@@ -313,9 +297,10 @@ func updateDocCmd() *cobra.Command {
 			}
 
 			table := tablewriter.NewWriter(os.Stdout)
-			table.SetHeader([]string{"ID", "Title", "Version"})
-			table.Append([]string{docID, getTitle(res.Meta), strconv.FormatInt(int64(res.Version), 10)})
+			table.SetHeader([]string{"ID", "Version"})
+			table.Append([]string{docID, strconv.FormatInt(int64(res.Version), 10)})
 			table.Render()
+			printField("Title", getTitle(res.Meta))
 		},
 	}
 
@@ -361,13 +346,16 @@ func publishDocCmd() *cobra.Command {
 				req.Version = &version
 			}
 
-			_, err = client.PublishDocument(tokenContext(), req)
+			res, err := client.PublishDocument(tokenContext(), req)
 			if err != nil {
 				logrus.Error(err)
 				return
 			}
 
-			logrus.Infof("document %s published", docID)
+			table := tablewriter.NewWriter(os.Stdout)
+			table.SetHeader([]string{"ID", "Version"})
+			table.Append([]string{res.Document.Id, res.Document.Version})
+			table.Render()
 		},
 	}
 
@@ -444,4 +432,11 @@ func getTitle(meta string) string {
 	}
 
 	return title
+}
+
+func printField(label, value string) {
+	color.Set(color.FgCyan)
+	fmt.Print(label)
+	color.Unset()
+	fmt.Printf(": %s\n", value)
 }

@@ -20,6 +20,7 @@ document is a document store for small projects. It is designed to be simple and
 - [ ] Document links
 - [ ] Document auto backup to S3
 - [ ] Document auto load from S3
+- [ ] Create a job to clean up old documents backups, (keep last 30 days)
 
 ## Installation
 

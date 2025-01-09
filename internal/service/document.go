@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/Masterminds/semver"
@@ -18,6 +19,7 @@ import (
 	status "google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gorm.io/gorm"
+	"time"
 )
 
 var (
@@ -27,7 +29,7 @@ var (
 // NewDocumentService creates a new DocumentService.
 func NewDocumentService(compress compress.Compress, store store.Store, redis *cache.Redis) *DocumentService {
 	service := &DocumentService{
-		redis:    redis,
+		cache:    redis,
 		store:    store,
 		compress: compress,
 	}
@@ -38,7 +40,7 @@ func NewDocumentService(compress compress.Compress, store store.Store, redis *ca
 // DocumentService is a service for managing documents.
 type DocumentService struct {
 	compress compress.Compress
-	redis    *cache.Redis
+	cache    *cache.Redis
 	store    store.Store
 	v1.UnimplementedDocumentServiceServer
 }
@@ -89,7 +91,7 @@ func (d DocumentService) CreateDocument(ctx context.Context, request *v1.CreateD
 // GetDocument retrieves a document.
 func (d DocumentService) GetDocument(ctx context.Context, request *v1.GetDocumentRequest) (*v1.GetDocumentResponse, error) {
 	// TODO: first look into cache
-	// doc, err := d.redis.Get(ctx, fmt.Sprintf("document:%s/version:%s", request.Id, request.Version))
+	// doc, err := d.cache.Get(ctx, fmt.Sprintf("document:%s/version:%s", request.Id, request.Version))
 	// if err == nil {
 	// 	return doc, nil
 	// }
@@ -302,7 +304,7 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 		}
 
 		// TODO: Set document in cache
-		//d.redis.Set(ctx, fmt.Sprintf("document:%s/version:%s", doc.ID, doc.Version), doc, 0)
+		//d.cache.Set(ctx, fmt.Sprintf("document:%s/version:%s", doc.ID, doc.Version), doc, 0)
 
 		return nil
 	})
@@ -364,6 +366,8 @@ func (d DocumentService) PublishDocument(ctx context.Context, request *v1.Publis
 		return nil, err
 	}
 
+	var latestDoc *model.PublishedDocument
+
 	err = d.store.Transaction(ctx, func(tx store.Store) error {
 		// Get the document from the database
 		doc, err := tx.GetDocument(ctx, docID)
@@ -393,7 +397,7 @@ func (d DocumentService) PublishDocument(ctx context.Context, request *v1.Publis
 				version = newVersion
 			}
 
-			latestDoc := &model.PublishedDocument{
+			latestDoc = &model.PublishedDocument{
 				ID:      doc.ID,
 				Version: version.String(),
 				Meta:    doc.Meta,
@@ -402,6 +406,10 @@ func (d DocumentService) PublishDocument(ctx context.Context, request *v1.Publis
 			err = tx.PublishDocument(ctx, latestDoc)
 			if err != nil {
 				return err
+			}
+			err = updateLatestPublishedDocumentCache(ctx, d.cache, doc.ID, latestDoc)
+			if err != nil {
+				logrus.Errorf("error updating cache: %v", err)
 			}
 		} else {
 			// Update the published document
@@ -422,7 +430,7 @@ func (d DocumentService) PublishDocument(ctx context.Context, request *v1.Publis
 
 				version = newVersion
 			}
-			latestDoc := &model.PublishedDocument{
+			latestDoc = &model.PublishedDocument{
 				ID:      doc.ID,
 				Version: version.String(),
 				Meta:    doc.Meta,
@@ -432,6 +440,10 @@ func (d DocumentService) PublishDocument(ctx context.Context, request *v1.Publis
 			if err != nil {
 				return err
 			}
+			err = updateLatestPublishedDocumentCache(ctx, d.cache, doc.ID, latestDoc)
+			if err != nil {
+				logrus.Errorf("error updating cache: %v", err)
+			}
 		}
 
 		return nil
@@ -440,5 +452,37 @@ func (d DocumentService) PublishDocument(ctx context.Context, request *v1.Publis
 		return nil, err
 	}
 
-	return &v1.PublishDocumentResponse{}, nil
+	return &v1.PublishDocumentResponse{
+		Document: &v1.PublishedDocument{
+			Id:      latestDoc.ID,
+			Version: latestDoc.Version,
+		},
+	}, nil
+}
+
+// updateLatestPublishedDocumentCache updates the latest published document cache.
+// NOTE: without cache update the latest document will not be available immediately.
+func updateLatestPublishedDocumentCache(ctx context.Context, cache *cache.Redis, id string, doc *model.PublishedDocument) error {
+	docProto := &v1.PublishedDocument{
+		Id:      doc.ID,
+		Version: doc.Version,
+		Meta:    doc.Meta,
+		Content: doc.Content,
+	}
+	docData, err := json.Marshal(docProto)
+	if err != nil {
+		return err
+	}
+
+	err = cache.Set(ctx, fmt.Sprintf("%s-%s", id, "latest"), string(docData), time.Minute*5)
+	if err != nil {
+		return err
+	}
+
+	err = cache.Set(ctx, fmt.Sprintf("%s-%s", id, doc.Version), string(docData), time.Minute*5)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -134,7 +134,7 @@ func Start(grpcPort, httpPort string) error {
 
 	// Register the grpc server
 	v1.RegisterDocumentServiceServer(grpcServer, service.NewDocumentService(compressor, docStore, redis))
-	v1.RegisterPublishedDocumentServiceServer(grpcServer, service.NewPublishedDocumentService(compressor, docStore))
+	v1.RegisterPublishedDocumentServiceServer(grpcServer, service.NewPublishedDocumentService(compressor, docStore, redis))
 
 	// Register the rest gateway
 	if err = v1.RegisterDocumentServiceHandlerFromEndpoint(context.TODO(), mux, endpoint, opts); err != nil {

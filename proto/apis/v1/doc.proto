@@ -104,7 +104,7 @@ message PublishDocumentRequest {
 }
 
 message PublishDocumentResponse {
-  Document document = 1;
+  PublishedDocument document = 1;
 }
 
 service DocumentService {
