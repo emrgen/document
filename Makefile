@@ -67,7 +67,7 @@ vet:
 generate-client: proto
 	@echo "Generating client version $(CLIENT_VERSION)"
 	@npx openapi-generator-cli generate \
-		-i ./apis/v1/api.swagger.json \
+		-i ./apis/v1/doc.swagger.json \
 		-g typescript-axios \
 		-o ./clients/ts/document-client-gen \
 		--additional-properties=npmName=@emrgen/document-client-gen,npmVersion=${CLIENT_VERSION},useSingleRequestParameter=true,supportsES6=true,modelPropertyNaming=snake_case,paramNaming=snake_case,enumPropertyNaming=snake_case \
@@ -77,7 +77,7 @@ generate-client: proto
 
 generate-docs:
 	@echo "Generating openapi doc version $(SERVER_VERSION)"
-	@npx @redocly/cli build-docs ./apis/v1/api.swagger.json --output ./docs/v1/index.html
+	@npx @redocly/cli build-docs ./apis/v1/doc.swagger.json --output ./docs/v1/index.html
 
 client: generate-client generate-docs
 

@@ -300,7 +300,6 @@ func updateDocCmd() *cobra.Command {
 			table.SetHeader([]string{"ID", "Version"})
 			table.Append([]string{docID, strconv.FormatInt(int64(res.Version), 10)})
 			table.Render()
-			printField("Title", getTitle(res.Meta))
 		},
 	}
 

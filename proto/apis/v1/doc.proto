@@ -76,9 +76,9 @@ message UpdateDocumentRequest {
   google.protobuf.Timestamp updated_at = 21;
 }
 
+// UpdateDocumentResponse is the response for updating a document
 message UpdateDocumentResponse {
   string id = 1 [(validate.rules).string.uuid = true];
-  string Meta = 2;
   uint32 version = 3;
 }
 
