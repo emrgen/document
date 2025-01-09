@@ -11,13 +11,13 @@ type Document struct {
 	gorm.Model
 	ID          string `gorm:"primaryKey;uuid;not null;"`
 	Version     int64  `gorm:"primaryKey"`
-	ProjectID   string `gorm:"not null"`
-	Name        string `gorm:"not null"`
+	ProjectID   string `gorm:"uuid;not null"`
+	Name        string
 	Summary     string
 	Excerpt     string
 	Thumbnail   string
 	Content     string   `gorm:"not null"`
-	Parts       []string `gorm:"type:text[]"`
+	Parts       []string `gorm:"type:text[]"` // the parts to be merged with the content to get the final document
 	Kind        string   // markdown, html, json, etc.
 	Compression string   // the compression algorithm used to compress the document content
 	Data        string   // the data of the document, lww

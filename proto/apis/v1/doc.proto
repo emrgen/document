@@ -32,7 +32,7 @@ extend google.protobuf.MessageOptions {
 
 message CreateDocumentRequest {
   string project_id = 1 [(validate.rules).string.uuid = true];
-  optional string id = 2 [(validate.rules).string.uuid = true];
+  optional string document_id = 2 [(validate.rules).string.uuid = true];
   string title = 3;
   string content = 4;
   string parts = 5;

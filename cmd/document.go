@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	v1 "github.com/emrgen/document/apis/v1"
+	"github.com/google/uuid"
 	"github.com/olekukonko/tablewriter"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -18,14 +19,15 @@ var documentCmd = &cobra.Command{
 }
 
 func init() {
-	documentCmd.AddCommand(createDocCmd())
-	documentCmd.AddCommand(getDocCmd())
-	documentCmd.AddCommand(listDocCmd())
-	documentCmd.AddCommand(updateDocCmd())
+	rootCmd.AddCommand(createDocCmd())
+	rootCmd.AddCommand(getDocCmd())
+	rootCmd.AddCommand(listDocCmd())
+	rootCmd.AddCommand(updateDocCmd())
 }
 
 func createDocCmd() *cobra.Command {
 	var projectID string
+	var docID string
 	var docTitle string
 	var content string
 
@@ -47,12 +49,23 @@ func createDocCmd() *cobra.Command {
 			defer conn.Close()
 			client := v1.NewDocumentServiceClient(conn)
 
-			ctx := tokenContext()
-			res, err := client.CreateDocument(ctx, &v1.CreateDocumentRequest{
+			req := &v1.CreateDocumentRequest{
 				Title:     docTitle,
 				ProjectId: projectID,
 				Content:   content,
-			})
+			}
+
+			if docID != "" {
+				_, err2 := uuid.Parse(docID)
+				if err2 != nil {
+					logrus.Error("invalid document id, expected a valid uuid")
+					return
+				}
+				req.DocumentId = &docID
+			}
+
+			ctx := tokenContext()
+			res, err := client.CreateDocument(ctx, req)
 			if err != nil {
 				logrus.Error(err)
 				return
@@ -62,6 +75,7 @@ func createDocCmd() *cobra.Command {
 		},
 	}
 
+	command.Flags().StringVarP(&docID, "doc-id", "d", "", "document id")
 	command.Flags().StringVarP(&projectID, "project", "p", "", "project id to create the document in")
 	command.Flags().StringVarP(&docTitle, "title", "t", "", "title of the document")
 	command.Flags().StringVarP(&content, "content", "c", "", "content of the document")

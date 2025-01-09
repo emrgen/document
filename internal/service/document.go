@@ -50,8 +50,8 @@ func (d DocumentService) CreateDocument(ctx context.Context, request *v1.CreateD
 		ProjectID: projectID,
 	}
 
-	if request.Id != nil {
-		doc.ID = request.GetId()
+	if request.DocumentId != nil {
+		doc.ID = request.GetDocumentId()
 	} else {
 		doc.ID = uuid.New().String()
 	}
@@ -176,9 +176,10 @@ func (d DocumentService) ListDocuments(ctx context.Context, request *v1.ListDocu
 // UpdateDocument updates a document.
 func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateDocumentRequest) (*v1.UpdateDocumentResponse, error) {
 	var err error
+	var doc *model.Document
 	err = d.db.Transaction(func(tx *gorm.DB) error {
 		// Get document from database
-		doc, err := model.GetDocument(d.db, request.Id)
+		doc, err = model.GetDocument(d.db, request.Id)
 		if err != nil {
 			return err
 		}
@@ -258,8 +259,8 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 
 	return &v1.UpdateDocumentResponse{
 		Id:      request.Id,
-		Title:   request.GetTitle(),
-		Version: uint32(request.GetVersion()),
+		Title:   doc.Name,
+		Version: uint32(doc.Version),
 	}, nil
 }
 

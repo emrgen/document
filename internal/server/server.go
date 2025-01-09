@@ -29,6 +29,29 @@ import (
 	"time"
 )
 
+// Server represents the server
+type Server struct {
+	grpcPort string
+	httpPort string
+	secure   bool // by default the server is secure
+}
+
+// NewServer creates a new server
+func NewServer(grpcPort, httpPort string, secure bool) *Server {
+	return &Server{
+		grpcPort: grpcPort,
+		httpPort: httpPort,
+		secure:   secure,
+	}
+}
+
+// Start starts the server
+func (s *Server) Start() {
+	if err := Start(s.grpcPort, s.httpPort); err != nil {
+		logrus.Fatalf("error starting server: %v", err)
+	}
+}
+
 // Start starts the grpc and http servers
 func Start(grpcPort, httpPort string) error {
 	var err error
@@ -53,8 +76,11 @@ func Start(grpcPort, httpPort string) error {
 	//authConn, err := grpc.NewClient(":4000", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	//defer authConn.Close()
 	// authClient provides the token service
-	//authClient := gopackv1.NewTokenServiceClient(authConn)
-	//memberClient := authbasev1.NewMemberServiceClient(authConn)
+	// authClient := gopackv1.NewTokenServiceClient(authConn)
+	// memberClient := authbasev1.NewMemberServiceClient(authConn)
+
+	// TODO: user a public key manager with to verify the token
+	// TODO: in insecure mode, the token is not verified and project permission check is skipped
 
 	grpcServer := grpc.NewServer(
 		grpc.UnaryInterceptor(grpcmiddleware.ChainUnaryServer(

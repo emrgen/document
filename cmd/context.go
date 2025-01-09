@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc/metadata"
+	"os"
 )
 
 const (
@@ -115,7 +116,20 @@ func tokenContext() context.Context {
 }
 
 func readContext() Context {
-	var context Context
+	var ctx Context
+
+	// create file if it doesn't exist
+	if _, err := os.Stat("./.tmp/" + configFileName + ".yml"); os.IsNotExist(err) {
+		file, err := os.Create("./.tmp/" + configFileName + ".yml")
+		if err != nil {
+			fmt.Println("error creating config file: ", err)
+		}
+		err = file.Close()
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	viper.SetConfigName(configFileName)
 	viper.AddConfigPath("./.tmp")
 	viper.SetConfigType("yml")
@@ -124,9 +138,9 @@ func readContext() Context {
 		fmt.Println("error reading config file: ", err)
 	}
 
-	if err := viper.UnmarshalKey("context", &context); err != nil {
+	if err := viper.UnmarshalKey("context", &ctx); err != nil {
 		fmt.Println("error unmarshalling config file: ", err)
 	}
 
-	return context
+	return ctx
 }
