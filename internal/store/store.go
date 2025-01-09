@@ -37,7 +37,7 @@ type DocumentStore interface {
 	// DeleteBacklinks deletes backlinks by source ID.
 	DeleteBacklinks(ctx context.Context, backlinks []*model.Backlink) error
 	//	ListBacklinks retrieves a list of backlinks by target ID.
-	ListBacklinks(ctx context.Context, targetID uuid.UUID, targetVersion int64) ([]*model.Backlink, error)
+	ListBacklinks(ctx context.Context, targetID uuid.UUID) ([]*model.Backlink, error)
 }
 
 type DocumentBackupStore interface {

@@ -29,9 +29,9 @@ func (g *GormStore) DeleteBacklinks(ctx context.Context, backlinks []*model.Back
 }
 
 // ListBacklinks returns a list of backlinks for a document
-func (g *GormStore) ListBacklinks(ctx context.Context, targetID uuid.UUID, targetVersion int64) ([]*model.Backlink, error) {
+func (g *GormStore) ListBacklinks(ctx context.Context, sourceID uuid.UUID) ([]*model.Backlink, error) {
 	var backlinks []*model.Backlink
-	err := g.db.Where("source_id = ? AND source_version = ?", targetID, targetVersion).Find(&backlinks).Error
+	err := g.db.Where("source_id = ? AND", sourceID).Find(&backlinks).Error
 	return backlinks, err
 }
 

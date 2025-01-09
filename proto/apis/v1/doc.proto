@@ -18,9 +18,10 @@ enum DocumentKind {
 // Document
 message Document {
   string id = 1 [(validate.rules).string.uuid = true];
-  string meta = 2;
-  string content = 3;
-  int64 version = 4;
+  int64 version = 2;
+  string meta = 3;
+  string content = 4;
+  string links = 5;
   DocumentKind kind = 6; // default: treated as text
   google.protobuf.Timestamp created_at = 20;
   google.protobuf.Timestamp updated_at = 21;
@@ -112,7 +113,6 @@ message PublishDocumentResponse {
 message ListBacklinksRequest {
   string project_id = 1 [(validate.rules).string.uuid = true];
   string document_id = 2 [(validate.rules).string.uuid = true];
-  int64 version = 3;
   int32 page = 5;
   int32 per_page = 6;
 }
@@ -220,6 +220,7 @@ message PublishedDocument {
   string version = 2; // semver
   string meta = 3;
   string content = 4;
+  string links = 5;
 }
 
 message GetPublishedDocumentRequest {

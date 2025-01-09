@@ -23,6 +23,7 @@ func init() {
 	rootCmd.AddCommand(updateDocCmd())
 	rootCmd.AddCommand(publishDocCmd())
 	rootCmd.AddCommand(listDocVersionsCmd())
+	rootCmd.AddCommand(listBacklinksCmd())
 }
 
 func createDocCmd() *cobra.Command {
@@ -412,7 +413,143 @@ func listDocVersionsCmd() *cobra.Command {
 	return command
 }
 
-func parseMeta(meta string) map[string]interface{} {
+func listBacklinksCmd() *cobra.Command {
+	var docID string
+	var published bool
+	var version string
+	var backlink bool
+
+	command := &cobra.Command{
+		Use:   "links",
+		Short: "list links",
+		Run: func(cmd *cobra.Command, args []string) {
+			if docID == "" {
+				logrus.Errorf("missing required flag: --doc-id")
+				return
+			}
+
+			if published && !backlink {
+				conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+				if err != nil {
+					logrus.Error(err)
+					return
+				}
+				defer conn.Close()
+				client := v1.NewPublishedDocumentServiceClient(conn)
+
+				docVersion := "latest"
+				if version != "" {
+					docVersion = version
+				}
+
+				res, err := client.GetPublishedDocument(tokenContext(), &v1.GetPublishedDocumentRequest{
+					Id:      docID,
+					Version: docVersion,
+				})
+				if err != nil {
+					logrus.Error(err)
+					return
+				}
+
+				printField("Links", res.Document.Links)
+
+				//table := tablewriter.NewWriter(os.Stdout)
+				//table.SetHeader([]string{"ID"})
+				//table.Render()
+			}
+
+			if !published && !backlink {
+				conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+				if err != nil {
+					logrus.Error(err)
+					return
+				}
+				defer conn.Close()
+				client := v1.NewDocumentServiceClient(conn)
+
+				res, err := client.GetDocument(tokenContext(), &v1.GetDocumentRequest{
+					Id: docID,
+				})
+				if err != nil {
+					logrus.Error(err)
+					return
+				}
+
+				printField("Links", res.Document.Links)
+			}
+
+			if published && backlink {
+				conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+				if err != nil {
+					logrus.Error(err)
+					return
+				}
+				defer conn.Close()
+				client := v1.NewPublishedDocumentServiceClient(conn)
+
+				docVersion := "latest"
+				if version != "" {
+					docVersion = version
+				}
+
+				ctx := tokenContext()
+				res, err := client.ListPublishedBacklinks(ctx, &v1.ListPublishedBacklinksRequest{
+					DocumentId: docID,
+					Version:    docVersion,
+				})
+				if err != nil {
+					logrus.Error(err)
+					return
+				}
+
+				table := tablewriter.NewWriter(os.Stdout)
+				table.SetHeader([]string{"ID"})
+				for _, doc := range res.Documents {
+					table.Append([]string{doc.Id})
+				}
+
+				table.Render()
+			}
+
+			if !published && backlink {
+				conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+				if err != nil {
+					logrus.Error(err)
+					return
+				}
+				defer conn.Close()
+				client := v1.NewDocumentServiceClient(conn)
+
+				ctx := tokenContext()
+				res, err := client.ListBacklinks(ctx, &v1.ListBacklinksRequest{
+					DocumentId: docID,
+				})
+				if err != nil {
+					logrus.Error(err)
+					return
+				}
+
+				table := tablewriter.NewWriter(os.Stdout)
+				table.SetHeader([]string{"ID"})
+				for _, doc := range res.Documents {
+					table.Append([]string{doc.Id})
+				}
+
+				table.Render()
+			}
+
+		},
+	}
+
+	command.Flags().BoolVarP(&published, "published", "p", false, "list backlinks from published document")
+	command.Flags().StringVarP(&docID, "doc-id", "d", "", "document id of the document")
+	command.Flags().StringVarP(&version, "version", "v", "", "version of the document")
+	command.Flags().BoolVarP(&backlink, "backlink", "b", false, "backlink id")
+
+	return command
+}
+
+func parseMap(meta string) map[string]interface{} {
 	var m map[string]interface{}
 	err := json.Unmarshal([]byte(meta), &m)
 	if err != nil {
@@ -424,7 +561,7 @@ func parseMeta(meta string) map[string]interface{} {
 }
 
 func getTitle(meta string) string {
-	m := parseMeta(meta)
+	m := parseMap(meta)
 	title, ok := m["title"].(string)
 	if !ok {
 		return ""

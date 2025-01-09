@@ -51,7 +51,7 @@ func (d DocumentService) ListBacklinks(ctx context.Context, request *v1.ListBack
 		return nil, err
 	}
 
-	backlinks, err := d.store.ListBacklinks(ctx, docID, request.GetVersion())
+	backlinks, err := d.store.ListBacklinks(ctx, docID)
 	if err != nil {
 		return nil, err
 	}
@@ -59,8 +59,7 @@ func (d DocumentService) ListBacklinks(ctx context.Context, request *v1.ListBack
 	var backlinksProto []*v1.Document
 	for _, source := range backlinks {
 		backlinksProto = append(backlinksProto, &v1.Document{
-			Id:      source.SourceID,
-			Version: source.SourceVersion,
+			Id: source.SourceID,
 		})
 	}
 
