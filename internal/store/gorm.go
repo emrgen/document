@@ -155,10 +155,22 @@ func (g *GormStore) GetDocument(ctx context.Context, id uuid.UUID) (*model.Docum
 	return &doc, err
 }
 
-func (g *GormStore) ListDocuments(ctx context.Context, projectID uuid.UUID) ([]*model.Document, error) {
+// ListDocuments returns a list of documents for a project
+func (g *GormStore) ListDocuments(ctx context.Context, projectID uuid.UUID) ([]*model.Document, int64, error) {
 	var docs []*model.Document
+	// TODO: it should be paginated
 	err := g.db.Where("project_id = ?", projectID).Find(&docs).Error
-	return docs, err
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var total int64
+	err = g.db.Model(&model.Document{}).Where("project_id = ?", projectID).Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return docs, total, nil
 }
 
 func (g *GormStore) UpdateDocument(ctx context.Context, doc *model.Document) error {

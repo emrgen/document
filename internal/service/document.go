@@ -166,7 +166,7 @@ func (d DocumentService) ListDocuments(ctx context.Context, request *v1.ListDocu
 	}
 
 	// Get documents from database page by page
-	documents, err := d.store.ListDocuments(ctx, projectID)
+	documents, total, err := d.store.ListDocuments(ctx, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +184,7 @@ func (d DocumentService) ListDocuments(ctx context.Context, request *v1.ListDocu
 
 	return &v1.ListDocumentsResponse{
 		Documents: documentsProto,
-		//Total:     int32(total),
+		Total:     int32(total),
 	}, nil
 }
 
@@ -267,6 +267,8 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 		// explicitly overwrite the document
 		// or the version matches and the kind is not JSONDIFF as JSONDIFF is handled above
 		if overwrite || versionMatch && request.GetKind() != v1.UpdateKind_JSONDIFF {
+			// TODO: check if document hash is the same
+
 			// Create a backup of the document
 			logrus.Infof("creating backup for document id: %v, version: %v", doc.ID, doc.Version)
 			err = tx.CreateDocumentBackup(ctx, &model.DocumentBackup{
@@ -375,13 +377,18 @@ func (d DocumentService) PublishDocument(ctx context.Context, request *v1.Publis
 		}
 
 		// Get latest published document
-		lastPublishedDocMeta, err := tx.GetLatestPublishedDocumentMeta(ctx, docID)
+		lastPublishedDoc, err := tx.GetLatestPublishedDocument(ctx, docID)
 		if err != nil && !errors.Is(gorm.ErrRecordNotFound, err) {
 			return err
 		}
 
+		// Check if the document is already published with the same content and metadata
+		if !request.GetForce() && lastPublishedDoc != nil && doc != nil && lastPublishedDoc.Meta == doc.Meta && lastPublishedDoc.Content == doc.Content {
+			return errors.New("document is already published with version: " + lastPublishedDoc.Version)
+		}
+
 		// Create a new published document
-		if lastPublishedDocMeta == nil {
+		if lastPublishedDoc == nil {
 			version, err := semver.NewVersion("0.0.1") // initial version
 			if err != nil {
 				return err
@@ -412,7 +419,7 @@ func (d DocumentService) PublishDocument(ctx context.Context, request *v1.Publis
 			}
 		} else {
 			// Update the published document
-			version, err := semver.NewVersion(lastPublishedDocMeta.Version)
+			version, err := semver.NewVersion(lastPublishedDoc.Version)
 			if err != nil {
 				return err
 			}

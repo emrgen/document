@@ -101,6 +101,7 @@ message EraseDocumentResponse {
 message PublishDocumentRequest {
   string document_id = 1 [(validate.rules).string.uuid = true];
   optional string version = 2; // semver
+  bool force = 3;
 }
 
 message PublishDocumentResponse {

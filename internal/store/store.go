@@ -21,7 +21,7 @@ type DocumentStore interface {
 	// GetDocument retrieves a document by ID.
 	GetDocument(ctx context.Context, id uuid.UUID) (*model.Document, error)
 	// ListDocuments retrieves a list of documents by project ID.
-	ListDocuments(ctx context.Context, projectID uuid.UUID) ([]*model.Document, error)
+	ListDocuments(ctx context.Context, projectID uuid.UUID) ([]*model.Document, int64, error)
 	// ListDocumentsFromIDs retrieves a list of documents by IDs.
 	ListDocumentsFromIDs(ctx context.Context, ids []uuid.UUID) ([]*model.Document, error)
 	// UpdateDocument updates a document.
