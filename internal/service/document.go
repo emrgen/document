@@ -313,6 +313,7 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 	return &v1.UpdateDocumentResponse{
 		Id:      request.Id,
 		Version: uint32(doc.Version),
+		Meta:    doc.Meta,
 	}, nil
 }
 

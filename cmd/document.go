@@ -314,7 +314,7 @@ func updateDocCmd() *cobra.Command {
 
 			table := tablewriter.NewWriter(os.Stdout)
 			table.SetHeader([]string{"ID", "Title", "Version"})
-			table.Append([]string{docID, docTitle, strconv.FormatInt(int64(res.Version), 10)})
+			table.Append([]string{docID, getTitle(res.Meta), strconv.FormatInt(int64(res.Version), 10)})
 			table.Render()
 		},
 	}
@@ -423,4 +423,25 @@ func listDocVersionsCmd() *cobra.Command {
 	command.Flags().StringVarP(&docID, "doc-id", "d", "", "document id to list versions")
 
 	return command
+}
+
+func parseMeta(meta string) map[string]interface{} {
+	var m map[string]interface{}
+	err := json.Unmarshal([]byte(meta), &m)
+	if err != nil {
+		logrus.Error(err)
+		return nil
+	}
+
+	return m
+}
+
+func getTitle(meta string) string {
+	m := parseMeta(meta)
+	title, ok := m["title"].(string)
+	if !ok {
+		return ""
+	}
+
+	return title
 }
