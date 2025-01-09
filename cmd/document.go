@@ -212,8 +212,8 @@ func updateDocCmd() *cobra.Command {
 			}
 
 			table := tablewriter.NewWriter(os.Stdout)
-			table.SetHeader([]string{"ID", "Title", "Version", "CreatedAt"})
-			table.Append([]string{docID, docTitle, strconv.FormatInt(version, 10), ""})
+			table.SetHeader([]string{"ID", "Title", "Version"})
+			table.Append([]string{docID, docTitle, strconv.FormatInt(version, 10)})
 			table.Render()
 		},
 	}

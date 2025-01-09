@@ -96,7 +96,6 @@ message EraseDocumentRequest {
 message EraseDocumentResponse {
   Document document = 1;
 }
-
 service DocumentService {
   rpc CreateDocument(CreateDocumentRequest) returns (CreateDocumentResponse) {
     option (google.api.http) = {
