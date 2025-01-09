@@ -12,15 +12,10 @@ type Document struct {
 	ID          string `gorm:"primaryKey;uuid;not null;"`
 	Version     int64  `gorm:"primaryKey"`
 	ProjectID   string `gorm:"uuid;not null"`
-	Name        string
-	Summary     string
-	Excerpt     string
-	Thumbnail   string
-	Content     string   `gorm:"not null"`
-	Parts       []string `gorm:"type:text[]"` // the parts to be merged with the content to get the final document
-	Kind        string   // markdown, html, json, etc.
-	Compression string   // the compression algorithm used to compress the document content
-	Data        string   // the data of the document, lww
+	Meta        string `gorm:"not null"`
+	Content     string `gorm:"not null"`
+	Kind        string // markdown, html, json, etc.
+	Compression string // the compression algorithm used to compress the document content
 }
 
 func CreateDocument(db *gorm.DB, document *Document) error {
@@ -59,10 +54,6 @@ func DeleteDocument(db *gorm.DB, id string) error {
 func (d *Document) UpdateChanges(db *gorm.DB) error {
 	// if the document has content
 	if d.Content != "" {
-		return db.Model(&Document{}).Where("id = ? AND version < ?", d.ID, d.Version).Updates(d).Error
-	}
-
-	if len(d.Parts) > 0 {
 		return db.Model(&Document{}).Where("id = ? AND version < ?", d.ID, d.Version).Updates(d).Error
 	}
 

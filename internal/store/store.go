@@ -10,7 +10,7 @@ import (
 type Store interface {
 	DocumentStore
 	DocumentBackupStore
-	Transaction(ctx context.Context, f func(ctx context.Context) error) error
+	Transaction(ctx context.Context, f func(tx Store) error) error
 	Migrate() error
 }
 

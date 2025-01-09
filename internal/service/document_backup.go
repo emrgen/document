@@ -38,8 +38,7 @@ func (d *DocumentBackupService) ListDocumentBackups(ctx context.Context, request
 		resp.Backups = append(resp.Backups, &v1.DocumentBackup{
 			Id: backup.ID,
 			Document: &v1.Document{
-				Id:        backup.Document.ID,
-				Title:     backup.Title,
+				Id:        backup.DocumentID,
 				Content:   backup.Content,
 				Kind:      nil,
 				Version:   backup.Version,

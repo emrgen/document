@@ -13,15 +13,10 @@ import "google/protobuf/descriptor.proto";
 // Document
 message Document {
   string id = 1 [(validate.rules).string.uuid = true];
-  string title = 2;
+  string meta = 2;
   string content = 3;
-  repeated string parts = 4;
-  optional string kind = 5; // default: treated as text
-  int64 version = 6;
-  optional string data = 7;
-  string summary = 8;
-  string excerpt = 9;
-  string thumbnail = 10;
+  int64 version = 4;
+  optional string kind = 6; // default: treated as text
   google.protobuf.Timestamp created_at = 20;
   google.protobuf.Timestamp updated_at = 21;
 }
@@ -33,9 +28,8 @@ extend google.protobuf.MessageOptions {
 message CreateDocumentRequest {
   string project_id = 1 [(validate.rules).string.uuid = true];
   optional string document_id = 2 [(validate.rules).string.uuid = true];
-  string title = 3;
+  string meta = 3;
   string content = 4;
-  string parts = 5;
 }
 
 message CreateDocumentResponse {

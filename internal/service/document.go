@@ -45,9 +45,17 @@ type DocumentService struct {
 func (d DocumentService) CreateDocument(ctx context.Context, request *v1.CreateDocumentRequest) (*v1.CreateDocumentResponse, error) {
 	var err error
 
+	data, err := d.compress.Encode([]byte(request.GetContent()))
+	if err != nil {
+		return nil, err
+	}
+
 	projectID := request.GetProjectId()
 	doc := &model.Document{
 		ProjectID: projectID,
+		Meta:      request.GetMeta(),
+		Content:   string(data),
+		Version:   0,
 	}
 
 	if request.DocumentId != nil {
@@ -56,14 +64,7 @@ func (d DocumentService) CreateDocument(ctx context.Context, request *v1.CreateD
 		doc.ID = uuid.New().String()
 	}
 
-	doc.Name = request.GetTitle()
-	data, err := d.compress.Encode([]byte(request.GetContent()))
-	if err != nil {
-		return nil, err
-	}
-
-	doc.Content = string(data)
-	err = model.CreateDocument(d.db, doc)
+	err = d.db.Create(doc).Error
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +72,7 @@ func (d DocumentService) CreateDocument(ctx context.Context, request *v1.CreateD
 	return &v1.CreateDocumentResponse{
 		Document: &v1.Document{
 			Id:        doc.ID,
-			Title:     doc.Name,
+			Meta:      request.GetMeta(),
 			CreatedAt: timestamppb.New(doc.CreatedAt),
 			UpdatedAt: timestamppb.New(doc.UpdatedAt),
 		},
@@ -100,11 +101,8 @@ func (d DocumentService) GetDocument(ctx context.Context, request *v1.GetDocumen
 	return &v1.GetDocumentResponse{
 		Document: &v1.Document{
 			Id:        doc.ID,
-			Title:     doc.Name,
+			Meta:      doc.Meta,
 			Content:   string(data),
-			Parts:     doc.Parts,
-			Excerpt:   doc.Excerpt,
-			Summary:   doc.Summary,
 			Version:   doc.Version,
 			CreatedAt: timestamppb.New(doc.CreatedAt),
 			UpdatedAt: timestamppb.New(doc.UpdatedAt),
@@ -132,10 +130,7 @@ func (d DocumentService) ListDocuments(ctx context.Context, request *v1.ListDocu
 		for _, doc := range documents {
 			documentsProto = append(documentsProto, &v1.Document{
 				Id:        doc.ID,
-				Title:     doc.Name,
-				Summary:   doc.Summary,
-				Excerpt:   doc.Excerpt,
-				Thumbnail: doc.Thumbnail,
+				Meta:      doc.Meta,
 				Version:   doc.Version,
 				CreatedAt: timestamppb.New(doc.CreatedAt),
 				UpdatedAt: timestamppb.New(doc.UpdatedAt),
@@ -161,7 +156,7 @@ func (d DocumentService) ListDocuments(ctx context.Context, request *v1.ListDocu
 	for _, doc := range documents {
 		documentsProto = append(documentsProto, &v1.Document{
 			Id:        doc.ID,
-			Title:     doc.Name,
+			Meta:      doc.Meta,
 			CreatedAt: timestamppb.New(doc.CreatedAt),
 			UpdatedAt: timestamppb.New(doc.UpdatedAt),
 		})
@@ -187,61 +182,84 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 		logrus.Info("updating document", request.GetVersion(), doc.Version)
 
 		overwrite := request.Version == -1
+		versionMatch := request.Version == doc.Version+1
 
-		if !overwrite && doc.Version+1 != request.GetVersion() {
+		if !overwrite && versionMatch {
 			return errors.New(fmt.Sprintf("current version: %d, expected version %d, provider version: %d, ", doc.Version, doc.Version+1, request.GetVersion()))
 		}
 
-		// Update document in database
-		if request.Title != nil {
-			doc.Name = request.GetTitle()
+		if versionMatch {
+			//updateFields := request.Title != nil || request.Data != nil || request.Summary != nil || request.Excerpt != nil || request.Thumbnail != nil
+			//if updateFields {
+			//	// merge parts into content
+			//
+			//	// Create a backup of the document
+			//	err = d.store.CreateDocumentBackup(ctx, &model.DocumentBackup{
+			//		ID:        doc.ID,
+			//		Version:   doc.Version,
+			//		Content:   doc.Content,
+			//		Title:     doc.Title,
+			//		Summary:   doc.Summary,
+			//		Excerpt:   doc.Excerpt,
+			//		Thumbnail: doc.Thumbnail,
+			//	})
+			//	if err != nil {
+			//		return err
+			//	}
+			//
+
+			// Update document in database
+			//if request.Title != nil {
+			//	doc.Title = request.GetTitle()
+			//}
+			//
+			//if request.Data != nil {
+			//	doc.Data = request.GetData()
+			//}
+			//
+			//if request.Summary != nil {
+			//	doc.Summary = request.GetSummary()
+			//}
+			//
+			//if request.Excerpt != nil {
+			//	doc.Excerpt = request.GetExcerpt()
+			//}
+			//
+			//if request.Thumbnail != nil {
+			//	doc.Thumbnail = request.GetThumbnail()
+			//}
+
+			data, err := d.compress.Encode([]byte(request.GetContent()))
+			if err != nil {
+				return err
+			}
+
+			doc.Content = string(data)
+			// TODO: if the parts are too large, we need to merge them
+			doc.Version = doc.Version + 1
 		}
 
-		if request.Data != nil {
-			doc.Data = request.GetData()
-		}
+		if overwrite {
+			// Create a backup of the document
+			//err = d.store.CreateDocumentBackup(ctx, &model.DocumentBackup{
+			//	ID:      doc.ID,
+			//	Version: doc.Version,
+			//	Content: doc.Content,
+			//})
+			//if err != nil {
+			//	return err
+			//}
 
-		if request.Summary != nil {
-			doc.Summary = request.GetSummary()
-		}
-
-		if request.Excerpt != nil {
-			doc.Excerpt = request.GetExcerpt()
-		}
-
-		if request.Thumbnail != nil {
-			doc.Thumbnail = request.GetThumbnail()
-		}
-
-		// if the content is not nil, update the content
-		// otherwise, append the parts to the document
-		if overwrite || request.Content != nil {
 			data, err := d.compress.Encode([]byte(request.GetContent()))
 			if err != nil {
 				return err
 			}
 			doc.Content = string(data)
-
-			if request.Parts != nil {
-				doc.Parts = request.GetParts()
-			}
-
-			doc.Version = doc.Version + 1
-		} else {
-			doc.Parts = append(doc.Parts, request.GetParts()...)
-			// TODO: if the parts are too large, we need to merge them
 			doc.Version = doc.Version + 1
 		}
 
-		err = d.store.CreateDocumentBackup(ctx, &model.DocumentBackup{
-			ID:      doc.ID,
-			Version: doc.Version,
-			Content: doc.Content,
-		})
-		if err != nil {
-			return err
-		}
-
+		// if the content is not nil, update the content
+		// otherwise, append the parts to the document
 		logrus.Info("updating document", doc.ID, doc.Version)
 		err = model.UpdateDocument(d.db, request.Id, doc)
 		if err != nil {
@@ -259,7 +277,6 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 
 	return &v1.UpdateDocumentResponse{
 		Id:      request.Id,
-		Title:   doc.Name,
 		Version: uint32(doc.Version),
 	}, nil
 }

@@ -50,7 +50,7 @@ func createDocCmd() *cobra.Command {
 			client := v1.NewDocumentServiceClient(conn)
 
 			req := &v1.CreateDocumentRequest{
-				Title:     docTitle,
+				//Meta:      docTitle,
 				ProjectId: projectID,
 				Content:   content,
 			}
@@ -116,7 +116,7 @@ func getDocCmd() *cobra.Command {
 			table.SetHeader([]string{"ID", "Created At"})
 			table.Append([]string{res.Document.Id, res.Document.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
 			table.Render()
-			fmt.Printf("Title: %s\n", res.Document.Title)
+			fmt.Printf("Title: %s\n", res.Document.Meta)
 			fmt.Printf("Content: %s\n", res.Document.Content)
 		},
 	}
@@ -156,9 +156,9 @@ func listDocCmd() *cobra.Command {
 			}
 
 			table := tablewriter.NewWriter(os.Stdout)
-			table.SetHeader([]string{"ID", "Title", "Version", "CreatedAt"})
+			table.SetHeader([]string{"ID", "Meta", "Version", "CreatedAt"})
 			for _, doc := range res.Documents {
-				table.Append([]string{doc.Id, doc.Title, strconv.FormatInt(doc.Version, 10), doc.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
+				table.Append([]string{doc.Id, doc.Meta, strconv.FormatInt(doc.Version, 10), doc.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
 			}
 
 			table.Render()

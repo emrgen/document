@@ -73,8 +73,8 @@ func (g *GormStore) Migrate() error {
 	return model.Migrate(g.db)
 }
 
-func (g *GormStore) Transaction(ctx context.Context, f func(ctx context.Context) error) error {
+func (g *GormStore) Transaction(ctx context.Context, f func(tx Store) error) error {
 	return g.db.Transaction(func(tx *gorm.DB) error {
-		return f(ctx)
+		return f(&GormStore{db: tx})
 	})
 }

@@ -8,12 +8,12 @@ import "gorm.io/gorm"
 // the cold backups are moved to a different storage like S3(we can keep the backups for a longer period of time in S3)
 type DocumentBackup struct {
 	gorm.Model
-	ID          string    `gorm:"primaryKey:uuid;"`
-	Version     int64     `gorm:"primaryKey"`
-	Document    *Document `gorm:"foreignKey:ID"`
-	Title       string    `gorm:""`
-	Content     string    `gorm:""`
-	UpdatedBy   string    `gorm:"not null"`
+	ID          string `gorm:"primaryKey:uuid;"`
+	DocumentID  string `gorm:"not null"`
+	Meta        string `gorm:"not null"`
+	Content     string `gorm:"not null"`
+	Version     int64  `gorm:"not null"`
+	UpdatedBy   string `gorm:"not null"`
 	Compression string
 }
 
