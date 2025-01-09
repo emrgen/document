@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	v1 "github.com/emrgen/document/apis/v1"
 	"github.com/google/uuid"
@@ -50,9 +51,20 @@ func createDocCmd() *cobra.Command {
 			client := v1.NewDocumentServiceClient(conn)
 
 			req := &v1.CreateDocumentRequest{
-				//Meta:      docTitle,
 				ProjectId: projectID,
 				Content:   content,
+			}
+			if docTitle != "" {
+				meta := map[string]string{
+					"title": docTitle,
+				}
+
+				metaData, err := json.Marshal(meta)
+				if err != nil {
+					logrus.Error(err)
+					return
+				}
+				req.Meta = string(metaData)
 			}
 
 			if docID != "" {
@@ -103,8 +115,7 @@ func getDocCmd() *cobra.Command {
 			defer conn.Close()
 			client := v1.NewDocumentServiceClient(conn)
 
-			ctx := tokenContext()
-			res, err := client.GetDocument(ctx, &v1.GetDocumentRequest{
+			res, err := client.GetDocument(tokenContext(), &v1.GetDocumentRequest{
 				Id: docID,
 			})
 			if err != nil {
@@ -114,9 +125,20 @@ func getDocCmd() *cobra.Command {
 
 			table := tablewriter.NewWriter(os.Stdout)
 			table.SetHeader([]string{"ID", "Created At"})
+			var meta map[string]interface{}
+			err = json.Unmarshal([]byte(res.Document.Meta), &meta)
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+
+			title, ok := meta["title"].(string)
+			if !ok {
+				title = ""
+			}
 			table.Append([]string{res.Document.Id, res.Document.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
 			table.Render()
-			fmt.Printf("Title: %s\n", res.Document.Meta)
+			fmt.Printf("Title: %s\n", title)
 			fmt.Printf("Content: %s\n", res.Document.Content)
 		},
 	}
@@ -199,13 +221,33 @@ func updateDocCmd() *cobra.Command {
 			defer conn.Close()
 			client := v1.NewDocumentServiceClient(conn)
 
-			ctx := tokenContext()
-			_, err = client.UpdateDocument(ctx, &v1.UpdateDocumentRequest{
+			req := &v1.UpdateDocumentRequest{
 				Id:      docID,
-				Title:   &docTitle,
-				Content: &content,
 				Version: version,
-			})
+				Kind:    v1.UpdateKind_TEXT,
+			}
+
+			// update content if provided
+			if content != "" {
+				req.Content = &content
+			}
+
+			// update meta if title is provided
+			if docTitle != "" {
+				meta := map[string]string{
+					"title": docTitle,
+				}
+
+				metaData, err := json.Marshal(meta)
+				if err != nil {
+					logrus.Error(err)
+					return
+				}
+				data := string(metaData)
+				req.Meta = &data
+			}
+
+			_, err = client.UpdateDocument(tokenContext(), req)
 			if err != nil {
 				logrus.Error(err)
 				return

@@ -40,7 +40,6 @@ func (d *DocumentBackupService) ListDocumentBackups(ctx context.Context, request
 			Document: &v1.Document{
 				Id:        backup.DocumentID,
 				Content:   backup.Content,
-				Kind:      nil,
 				Version:   backup.Version,
 				CreatedAt: timestamppb.New(backup.CreatedAt),
 			},

@@ -2,11 +2,14 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"github.com/emrgen/blocktree"
 	"github.com/emrgen/document/internal/store"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 
+	_ "github.com/emrgen/blocktree"
 	v1 "github.com/emrgen/document/apis/v1"
 	"github.com/emrgen/document/internal/cache"
 	"github.com/emrgen/document/internal/compress"
@@ -26,7 +29,7 @@ func NewDocumentService(db *gorm.DB, store store.Store, redis *cache.Redis) *Doc
 		db:       db,
 		redis:    redis,
 		store:    store,
-		compress: compress.NewGZip(),
+		compress: compress.NewNop(),
 	}
 
 	return service
@@ -45,7 +48,12 @@ type DocumentService struct {
 func (d DocumentService) CreateDocument(ctx context.Context, request *v1.CreateDocumentRequest) (*v1.CreateDocumentResponse, error) {
 	var err error
 
-	data, err := d.compress.Encode([]byte(request.GetContent()))
+	metaData, err := d.compress.Encode([]byte(request.GetMeta()))
+	if err != nil {
+		return nil, err
+	}
+
+	contentData, err := d.compress.Encode([]byte(request.GetContent()))
 	if err != nil {
 		return nil, err
 	}
@@ -53,8 +61,8 @@ func (d DocumentService) CreateDocument(ctx context.Context, request *v1.CreateD
 	projectID := request.GetProjectId()
 	doc := &model.Document{
 		ProjectID: projectID,
-		Meta:      request.GetMeta(),
-		Content:   string(data),
+		Meta:      string(metaData),
+		Content:   string(contentData),
 		Version:   0,
 	}
 
@@ -93,7 +101,12 @@ func (d DocumentService) GetDocument(ctx context.Context, request *v1.GetDocumen
 		return nil, err
 	}
 
-	data, err := d.compress.Decode([]byte(doc.Content))
+	metaData, err := d.compress.Decode([]byte(doc.Meta))
+	if err != nil {
+		return nil, err
+	}
+
+	contentData, err := d.compress.Decode([]byte(doc.Content))
 	if err != nil {
 		return nil, err
 	}
@@ -101,8 +114,8 @@ func (d DocumentService) GetDocument(ctx context.Context, request *v1.GetDocumen
 	return &v1.GetDocumentResponse{
 		Document: &v1.Document{
 			Id:        doc.ID,
-			Meta:      doc.Meta,
-			Content:   string(data),
+			Content:   string(contentData),
+			Meta:      string(metaData),
 			Version:   doc.Version,
 			CreatedAt: timestamppb.New(doc.CreatedAt),
 			UpdatedAt: timestamppb.New(doc.UpdatedAt),
@@ -179,88 +192,101 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 			return err
 		}
 
-		logrus.Info("updating document", request.GetVersion(), doc.Version)
+		logrus.Infof("old version: %v, new version: %v", doc.Version, request.GetVersion())
 
 		overwrite := request.Version == -1
 		versionMatch := request.Version == doc.Version+1
 
-		if !overwrite && versionMatch {
-			return errors.New(fmt.Sprintf("current version: %d, expected version %d, provider version: %d, ", doc.Version, doc.Version+1, request.GetVersion()))
+		if !overwrite && !versionMatch {
+			return status.New(codes.FailedPrecondition, fmt.Sprintf("current version: %d, expected version %d, provider version: %d, ", doc.Version, doc.Version+1, request.GetVersion())).Err()
 		}
 
-		if versionMatch {
-			//updateFields := request.Title != nil || request.Data != nil || request.Summary != nil || request.Excerpt != nil || request.Thumbnail != nil
-			//if updateFields {
-			//	// merge parts into content
-			//
-			//	// Create a backup of the document
-			//	err = d.store.CreateDocumentBackup(ctx, &model.DocumentBackup{
-			//		ID:        doc.ID,
-			//		Version:   doc.Version,
-			//		Content:   doc.Content,
-			//		Title:     doc.Title,
-			//		Summary:   doc.Summary,
-			//		Excerpt:   doc.Excerpt,
-			//		Thumbnail: doc.Thumbnail,
-			//	})
-			//	if err != nil {
-			//		return err
-			//	}
-			//
+		// if the version matches, update the document
+		if versionMatch && request.GetKind() == v1.UpdateKind_JSONDIFF {
+			if request.Meta != nil {
+				metaContent, err := d.compress.Encode([]byte(request.GetMeta()))
+				if err != nil {
+					return err
+				}
 
-			// Update document in database
-			//if request.Title != nil {
-			//	doc.Title = request.GetTitle()
-			//}
-			//
-			//if request.Data != nil {
-			//	doc.Data = request.GetData()
-			//}
-			//
-			//if request.Summary != nil {
-			//	doc.Summary = request.GetSummary()
-			//}
-			//
-			//if request.Excerpt != nil {
-			//	doc.Excerpt = request.GetExcerpt()
-			//}
-			//
-			//if request.Thumbnail != nil {
-			//	doc.Thumbnail = request.GetThumbnail()
-			//}
+				jsonDoc := blocktree.NewJsonDoc(metaContent)
+				patch := blocktree.JsonPatch(request.GetMeta())
 
-			data, err := d.compress.Encode([]byte(request.GetContent()))
-			if err != nil {
-				return err
+				err = jsonDoc.Apply(patch)
+				if err != nil {
+					return err
+				}
+
+				data, err := d.compress.Encode([]byte(jsonDoc.String()))
+				if err != nil {
+					return err
+				}
+				doc.Meta = string(data)
 			}
 
-			doc.Content = string(data)
+			if request.Content != nil {
+				contentData, err := d.compress.Encode([]byte(request.GetContent()))
+				if err != nil {
+					return err
+				}
+
+				// merge the content data
+				jsonDoc := blocktree.NewJsonDoc(contentData)
+				patch := blocktree.JsonPatch(request.GetMeta())
+
+				err = jsonDoc.Apply(patch)
+				if err != nil {
+					return err
+				}
+
+				data, err := d.compress.Encode([]byte(jsonDoc.String()))
+				if err != nil {
+					return err
+				}
+
+				doc.Content = string(data)
+			}
+
 			// TODO: if the parts are too large, we need to merge them
 			doc.Version = doc.Version + 1
 		}
 
-		if overwrite {
+		// explicitly overwrite the document
+		// or the version matches and the kind is not JSONDIFF as JSONDIFF is handled above
+		if overwrite || versionMatch && request.GetKind() != v1.UpdateKind_JSONDIFF {
 			// Create a backup of the document
-			//err = d.store.CreateDocumentBackup(ctx, &model.DocumentBackup{
-			//	ID:      doc.ID,
-			//	Version: doc.Version,
-			//	Content: doc.Content,
-			//})
-			//if err != nil {
-			//	return err
-			//}
-
-			data, err := d.compress.Encode([]byte(request.GetContent()))
+			logrus.Infof("creating backup for document id: %v, version: %v", doc.ID, doc.Version)
+			err = d.store.CreateDocumentBackup(ctx, &model.DocumentBackup{
+				ID:      doc.ID,
+				Version: doc.Version,
+				Meta:    doc.Meta,
+				Content: doc.Content,
+			})
 			if err != nil {
 				return err
 			}
-			doc.Content = string(data)
+
+			if request.Meta != nil {
+				metaContent, err := d.compress.Encode([]byte(request.GetMeta()))
+				if err != nil {
+					return err
+				}
+				doc.Meta = string(metaContent)
+			}
+
+			if request.Content != nil {
+				contentData, err := d.compress.Encode([]byte(request.GetContent()))
+				if err != nil {
+					return err
+				}
+				doc.Content = string(contentData)
+			}
 			doc.Version = doc.Version + 1
 		}
 
 		// if the content is not nil, update the content
 		// otherwise, append the parts to the document
-		logrus.Info("updating document", doc.ID, doc.Version)
+		logrus.Infof("updating document id: %v, version: %v", doc.ID, doc.Version)
 		err = model.UpdateDocument(d.db, request.Id, doc)
 		if err != nil {
 			return err

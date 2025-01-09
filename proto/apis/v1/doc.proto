@@ -10,13 +10,18 @@ import "google/protobuf/timestamp.proto";
 import "validate/validate.proto";
 import "google/protobuf/descriptor.proto";
 
+enum DocumentKind {
+  DOC_TEXT = 0;
+  DOC_JSON = 1;
+}
+
 // Document
 message Document {
   string id = 1 [(validate.rules).string.uuid = true];
   string meta = 2;
   string content = 3;
   int64 version = 4;
-  optional string kind = 6; // default: treated as text
+  DocumentKind kind = 6; // default: treated as text
   google.protobuf.Timestamp created_at = 20;
   google.protobuf.Timestamp updated_at = 21;
 }
@@ -56,16 +61,18 @@ message ListDocumentsResponse {
   int32 total = 2;
 }
 
+enum UpdateKind {
+  TEXT = 0;
+  JSON = 1;
+  JSONDIFF = 2;
+}
+
 message UpdateDocumentRequest {
   string id = 1 [(validate.rules).string.uuid = true];
-  optional string title = 3;
-  optional string content = 4;
-  repeated string parts = 5;
-  optional string data = 6;
-  optional string summary = 7;
-  optional string excerpt = 8;
-  optional string thumbnail = 9;
+  optional string meta = 2;
+  optional string content = 3;
   int64 version = 10;
+  UpdateKind kind = 11;
   google.protobuf.Timestamp updated_at = 21;
 }
 

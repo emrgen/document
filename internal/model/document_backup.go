@@ -9,11 +9,12 @@ import "gorm.io/gorm"
 type DocumentBackup struct {
 	gorm.Model
 	ID          string `gorm:"primaryKey:uuid;"`
+	Version     int64  `gorm:"primaryKey;not null"`
 	DocumentID  string `gorm:"not null"`
-	Meta        string `gorm:"not null"`
-	Content     string `gorm:"not null"`
-	Version     int64  `gorm:"not null"`
-	UpdatedBy   string `gorm:"not null"`
+	Meta        string
+	Content     string
+	Kind        string
+	UpdatedBy   string `gorm:"uuid;not null"`
 	Compression string
 }
 
