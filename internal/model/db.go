@@ -27,5 +27,13 @@ func Migrate(db *gorm.DB) error {
 		return err
 	}
 
+	if err := db.AutoMigrate(&Backlink{}); err != nil {
+		return err
+	}
+
+	if err := db.AutoMigrate(&PublishedBacklink{}); err != nil {
+		return err
+	}
+
 	return nil
 }

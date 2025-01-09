@@ -226,20 +226,37 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 				jsonDoc := blocktree.NewJsonDoc(metaContent)
 				patch := blocktree.JsonPatch(request.GetMeta())
 
-				logrus.Infof("applying patch: %v", patch)
-
 				err = jsonDoc.Apply(patch)
 				if err != nil {
 					return err
 				}
-
-				logrus.Infof("patched content: %v", jsonDoc.String())
 
 				data, err := d.compress.Encode([]byte(jsonDoc.String()))
 				if err != nil {
 					return err
 				}
 				doc.Meta = string(data)
+			}
+
+			if request.Links != nil {
+				linksContent, err := d.compress.Encode([]byte(request.GetLinks()))
+				if err != nil {
+					return err
+				}
+
+				jsonDoc := blocktree.NewJsonDoc(linksContent)
+				patch := blocktree.JsonPatch(request.GetLinks())
+
+				err = jsonDoc.Apply(patch)
+				if err != nil {
+					return err
+				}
+
+				data, err := d.compress.Encode([]byte(jsonDoc.String()))
+				if err != nil {
+					return err
+				}
+				doc.Links = string(data)
 			}
 
 			if request.Content != nil {
@@ -297,6 +314,14 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 					return err
 				}
 				doc.Meta = string(metaContent)
+			}
+
+			if request.Links != nil {
+				linksContent, err := d.compress.Encode([]byte(request.GetLinks()))
+				if err != nil {
+					return err
+				}
+				doc.Links = string(linksContent)
 			}
 
 			if request.Content != nil {

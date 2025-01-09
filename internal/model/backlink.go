@@ -1,17 +1,16 @@
 package model
 
-import "gorm.io/gorm"
-
-// BackLink represents a back link between two documents.
+// Backlink represents a back link between two documents.
 // This is used to track the relationships between documents.
 // Dynamic relationships are created between documents when a link is created.
-type BackLink struct {
-	gorm.Model
-	ProjectID string `gorm:"uuid;not null"`
-	SourceID  string `gorm:"uuid;not null"`
-	TargetID  string `gorm:"uuid;not null"`
+type Backlink struct {
+	ProjectID     string `gorm:"primaryKey;uuid;not null"`
+	SourceID      string `gorm:"primaryKey;uuid;not null;index:idx_back_links_source_id_version"`
+	SourceVersion int64  `gorm:"primaryKey;not null;index:idx_back_links_source_id_version"`
+	TargetID      string `gorm:"primaryKey;uuid;not null;index:idx_back_links_target_id_version"`
+	TargetVersion int64  `gorm:"primaryKey;not null;index:idx_back_links_target_id_version"`
 }
 
-func (b *BackLink) TableName() string {
+func (b *Backlink) TableName() string {
 	return "back_links"
 }

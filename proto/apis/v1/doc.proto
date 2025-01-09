@@ -71,6 +71,7 @@ message UpdateDocumentRequest {
   string id = 1 [(validate.rules).string.uuid = true];
   optional string meta = 2;
   optional string content = 3;
+  optional string links = 4;
   int64 version = 10;
   UpdateKind kind = 11;
   google.protobuf.Timestamp updated_at = 21;
@@ -106,6 +107,18 @@ message PublishDocumentRequest {
 
 message PublishDocumentResponse {
   PublishedDocument document = 1;
+}
+
+message ListBacklinksRequest {
+  string project_id = 1 [(validate.rules).string.uuid = true];
+  string document_id = 2 [(validate.rules).string.uuid = true];
+  int32 page = 5;
+  int32 per_page = 6;
+}
+
+message ListBacklinksResponse {
+  repeated Document documents = 1;
+  int32 total = 2;
 }
 
 service DocumentService {
@@ -188,6 +201,17 @@ service DocumentService {
       operation_id: "PublishDocument"
     };
   }
+
+  rpc ListBacklinks(ListBacklinksRequest) returns (ListBacklinksResponse) {
+    option (google.api.http) = {
+      get: "/v1/documents/{document_id}/backlinks"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "List backlinks"
+      description: "List backlinks"
+      operation_id: "ListBacklinks"
+    };
+  }
 }
 
 message PublishedDocument {
@@ -232,6 +256,18 @@ message ListPublishedDocumentVersionsResponse {
   string latest_version = 3;
 }
 
+message ListPublishedBacklinksRequest {
+  string project_id = 1 [(validate.rules).string.uuid = true];
+  string document_id = 2 [(validate.rules).string.uuid = true];
+  int32 page = 5;
+  int32 per_page = 6;
+}
+
+message ListPublishedBacklinksResponse {
+  repeated PublishedDocument documents = 1;
+  int32 total = 2;
+}
+
 service PublishedDocumentService {
   rpc GetPublishedDocument(GetPublishedDocumentRequest) returns (GetPublishedDocumentResponse) {
     option (google.api.http) = {
@@ -265,7 +301,19 @@ service PublishedDocumentService {
       operation_id: "ListPublishedDocumentVersions"
     };
   }
+
+    rpc ListPublishedBacklinks(ListPublishedBacklinksRequest) returns (ListPublishedBacklinksResponse) {
+    option (google.api.http) = {
+      get: "/v1/published/{document_id}/backlinks"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "List published backlinks"
+      description: "List published backlinks"
+      operation_id: "ListPublishedBacklinks"
+    };
+  }
 }
+
 
 message DocumentBackup {
   string id = 1 [(validate.rules).string.uuid = true];
