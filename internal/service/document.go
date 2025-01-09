@@ -183,6 +183,8 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 			return err
 		}
 
+		logrus.Info("updating document", request.GetVersion(), doc.Version)
+
 		overwrite := request.Version == -1
 
 		if !overwrite && doc.Version+1 != request.GetVersion() {

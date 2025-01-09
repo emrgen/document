@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"os"
+	"strconv"
 )
 
 var documentCmd = &cobra.Command{
@@ -141,9 +142,9 @@ func listDocCmd() *cobra.Command {
 			}
 
 			table := tablewriter.NewWriter(os.Stdout)
-			table.SetHeader([]string{"ID", "Title", "CreatedAt"})
+			table.SetHeader([]string{"ID", "Title", "Version", "CreatedAt"})
 			for _, doc := range res.Documents {
-				table.Append([]string{doc.Id, doc.Title, doc.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
+				table.Append([]string{doc.Id, doc.Title, strconv.FormatInt(doc.Version, 10), doc.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
 			}
 
 			table.Render()
@@ -160,6 +161,7 @@ func updateDocCmd() *cobra.Command {
 	var docID string
 	var docTitle string
 	var content string
+	var version int64
 
 	command := &cobra.Command{
 		Use:   "update",
@@ -168,6 +170,11 @@ func updateDocCmd() *cobra.Command {
 			if docID == "" {
 				logrus.Errorf("missing required flag: --doc-id")
 				return
+			}
+
+			if version == -1 {
+				cmd.Printf("using update version %d\n", version)
+				cmd.Printf("overwriting document %s\n", docID)
 			}
 
 			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -183,20 +190,24 @@ func updateDocCmd() *cobra.Command {
 				Id:      docID,
 				Title:   &docTitle,
 				Content: &content,
-				Version: -1,
+				Version: version,
 			})
 			if err != nil {
 				logrus.Error(err)
 				return
 			}
 
-			logrus.Infof("document updated successfully")
+			table := tablewriter.NewWriter(os.Stdout)
+			table.SetHeader([]string{"ID", "Title", "Version", "CreatedAt"})
+			table.Append([]string{docID, docTitle, strconv.FormatInt(version, 10), ""})
+			table.Render()
 		},
 	}
 
 	command.Flags().StringVarP(&docID, "doc-id", "d", "", "document id to update")
 	command.Flags().StringVarP(&docTitle, "title", "t", "", "title of the document")
 	command.Flags().StringVarP(&content, "content", "c", "", "content of the document")
+	command.Flags().Int64VarP(&version, "version", "v", -1, "version of the document to update")
 
 	return command
 }

@@ -72,6 +72,7 @@ message UpdateDocumentRequest {
   optional string excerpt = 8;
   optional string thumbnail = 9;
   int64 version = 10;
+  google.protobuf.Timestamp updated_at = 21;
 }
 
 message UpdateDocumentResponse {
