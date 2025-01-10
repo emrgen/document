@@ -163,8 +163,16 @@ func (p *PublishedDocumentService) GetPublishedDocument(ctx context.Context, req
 		if err != nil {
 			return nil, err
 		}
-		links := make(map[string]string)
-		err = json.Unmarshal(linkData, &links)
+		links, err := parseLinks(string(linkData))
+		if err != nil {
+			return nil, err
+		}
+
+		childrenData, err := p.compress.Decode([]byte(doc.Children))
+		if err != nil {
+			return nil, err
+		}
+		children, err := parseChildren(string(childrenData))
 		if err != nil {
 			return nil, err
 		}
@@ -175,6 +183,7 @@ func (p *PublishedDocumentService) GetPublishedDocument(ctx context.Context, req
 			Version:       doc.Version,
 			Content:       doc.Content,
 			Links:         links,
+			Children:      children,
 			LatestVersion: latestVersion,
 		}
 	}
@@ -203,10 +212,31 @@ func (p *PublishedDocumentService) ListPublishedDocuments(ctx context.Context, r
 			return nil, err
 		}
 
+		linksData, err := p.compress.Decode([]byte(doc.Links))
+		if err != nil {
+			return nil, err
+		}
+		childrenData, err := p.compress.Decode([]byte(doc.Children))
+		if err != nil {
+			return nil, err
+		}
+
+		links, err := parseLinks(string(linksData))
+		if err != nil {
+			return nil, err
+		}
+
+		children, err := parseChildren(string(childrenData))
+		if err != nil {
+			return nil, err
+		}
+
 		documents = append(documents, &v1.PublishedDocument{
-			Id:      doc.ID,
-			Meta:    string(metaData),
-			Version: doc.Version,
+			Id:       doc.ID,
+			Meta:     string(metaData),
+			Links:    links,
+			Children: children,
+			Version:  doc.Version,
 		})
 	}
 

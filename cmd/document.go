@@ -595,6 +595,7 @@ func listLinksCmd() *cobra.Command {
 func removeLinkCmd() *cobra.Command {
 	var sourceID string
 	var targetID string
+	var targetVersion string
 
 	var required = []string{"source-id", "target-id"}
 
@@ -626,7 +627,7 @@ func removeLinkCmd() *cobra.Command {
 			if res.Document.Links == nil {
 				res.Document.Links = make(map[string]string)
 			}
-			delete(res.Document.Links, targetID)
+			delete(res.Document.Links, fmt.Sprintf("%s@%s", targetID, targetVersion))
 
 			_, err = client.UpdateDocument(tokenContext(), &v1.UpdateDocumentRequest{
 				Id:      sourceID,
@@ -644,6 +645,7 @@ func removeLinkCmd() *cobra.Command {
 
 	command.Flags().StringVarP(&sourceID, "source-id", "s", "", "source document id (required)")
 	command.Flags().StringVarP(&targetID, "target-id", "t", "", "target document id (required)")
+	command.Flags().StringVarP(&targetVersion, "target-version", "v", "current", "target document version")
 	command.Flags().SortFlags = false
 	return command
 }
@@ -773,15 +775,16 @@ func listChildCmd() *cobra.Command {
 }
 
 func removeChildCmd() *cobra.Command {
-	var sourceID string
-	var targetID string
+	var parentID string
+	var childID string
+	var childVersion string
 
-	var required = []string{"source-id", "target-id"}
+	var required = []string{"parent-id", "child-id"}
 
 	command := &cobra.Command{
 		Use:     "remove",
 		Short:   "remove a child document",
-		Example: "document child remove -s <source-id> -t <target-id>",
+		Example: "document child remove -p <parent-id> -c <child-id> -v <child-version>",
 		Run: func(cmd *cobra.Command, args []string) {
 			if checkMissingFlags(cmd, required) {
 				return
@@ -796,7 +799,7 @@ func removeChildCmd() *cobra.Command {
 			client := v1.NewDocumentServiceClient(conn)
 
 			res, err := client.GetDocument(tokenContext(), &v1.GetDocumentRequest{
-				DocumentId: sourceID,
+				DocumentId: parentID,
 			})
 			if err != nil {
 				logrus.Error(err)
@@ -807,15 +810,17 @@ func removeChildCmd() *cobra.Command {
 				res.Document.Children = make([]string, 0)
 			}
 
+			childFullID := fmt.Sprintf("%s@%s", childID, childVersion)
+
 			// remove link from the document
 			for i, child := range res.Document.Children {
-				if child == targetID {
+				if child == childFullID {
 					res.Document.Children = append(res.Document.Children[:i], res.Document.Children[i+1:]...)
 				}
 			}
 
 			_, err = client.UpdateDocument(tokenContext(), &v1.UpdateDocumentRequest{
-				Id:       sourceID,
+				Id:       parentID,
 				Children: res.Document.Children,
 				Version:  res.Document.Version + 1,
 			})
@@ -826,8 +831,9 @@ func removeChildCmd() *cobra.Command {
 		},
 	}
 
-	command.Flags().StringVarP(&sourceID, "source-id", "s", "", "source document id (required)")
-	command.Flags().StringVarP(&targetID, "target-id", "t", "", "target document id (required)")
+	command.Flags().StringVarP(&parentID, "parent-id", "p", "", "parent document id (required)")
+	command.Flags().StringVarP(&childID, "child-id", "c", "", "child document id (required)")
+	command.Flags().StringVarP(&childVersion, "child-version", "v", "current", "child document version")
 	command.Flags().SortFlags = false
 
 	return command
@@ -935,9 +941,9 @@ func listPublishedDocsCmd() *cobra.Command {
 			}
 
 			table := tablewriter.NewWriter(os.Stdout)
-			table.SetHeader([]string{"ID", "Version"})
+			table.SetHeader([]string{"ID", "Version", "Links", "Children"})
 			for _, doc := range res.Documents {
-				table.Append([]string{doc.Id, doc.Version})
+				table.Append([]string{doc.Id, doc.Version, strconv.Itoa(len(doc.Links)), strconv.Itoa(len(doc.Children))})
 			}
 
 			table.Render()
