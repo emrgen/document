@@ -52,7 +52,6 @@ message CreateDocumentResponse {
 
 message GetDocumentRequest {
   string document_id = 2 [(validate.rules).string.uuid = true];
-  optional int64 version = 3;
 }
 
 message GetDocumentResponse {
@@ -377,9 +376,8 @@ message CreateDocumentBackupResponse {
 }
 
 message GetDocumentBackupRequest {
-  string project_id = 1 [(validate.rules).string.uuid = true];
-  string document_id = 2 [(validate.rules).string.uuid = true];
-  string id = 3 [(validate.rules).string.uuid = true];
+  string document_id = 1 [(validate.rules).string.uuid = true];
+  int64 version = 2;
 }
 
 message GetDocumentBackupResponse {
@@ -409,7 +407,7 @@ message RestoreDocumentBackupResponse {
 service DocumentBackupService {
   rpc ListDocumentBackups(ListDocumentBackupsRequest) returns (ListDocumentBackupsResponse) {
     option (google.api.http) = {
-      get: "/v1/documents/{document_id}/backups"
+      get: "/v1/documents/{document_id}/versions"
     };
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       summary: "List document backups"
@@ -420,7 +418,7 @@ service DocumentBackupService {
 
   rpc CreateDocumentBackup(CreateDocumentBackupRequest) returns (CreateDocumentBackupResponse) {
     option (google.api.http) = {
-      post: "/v1/documents/{document_id}/backups"
+      post: "/v1/documents/{document_id}/versions"
       body: "*"
     };
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
@@ -432,7 +430,7 @@ service DocumentBackupService {
 
   rpc GetDocumentBackup(GetDocumentBackupRequest) returns (GetDocumentBackupResponse) {
     option (google.api.http) = {
-      get: "/v1/documents/{document_id}/backups/{id}"
+      get: "/v1/documents/{document_id}/versions/{version}"
     };
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       summary: "Get a document backup"

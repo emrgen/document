@@ -51,9 +51,9 @@ type DocumentBackupStore interface {
 	// ListDocumentBackupVersions retrieves a list of document versions by ID.
 	ListDocumentBackupVersions(ctx context.Context, id uuid.UUID) ([]*model.DocumentBackup, error)
 	// GetDocumentBackup retrieves a document backup by document ID and version.
-	GetDocumentBackup(ctx context.Context, docID uuid.UUID, version uint64) (*model.DocumentBackup, error)
+	GetDocumentBackup(ctx context.Context, docID uuid.UUID, version int64) (*model.DocumentBackup, error)
 	// DeleteDocumentBackup deletes a document backup by document ID and version.
-	DeleteDocumentBackup(ctx context.Context, docID uuid.UUID, version uint64) error
+	DeleteDocumentBackup(ctx context.Context, docID uuid.UUID, version int64) error
 	// RestoreDocument restores a document from a backup.
 	RestoreDocument(ctx context.Context, doc *model.Document, backup *model.DocumentBackup) error
 }

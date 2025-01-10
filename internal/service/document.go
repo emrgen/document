@@ -152,7 +152,6 @@ func (d DocumentService) GetDocument(ctx context.Context, request *v1.GetDocumen
 	// if err == nil {
 	// 	return doc, nil
 	// }
-
 	logrus.Infof("getting document id: %v", request.GetDocumentId())
 	// Get document from database
 	doc, err := d.store.GetDocument(ctx, uuid.MustParse(request.GetDocumentId()))
@@ -378,6 +377,7 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 				Version: doc.Version,
 				Meta:    doc.Meta,
 				Content: doc.Content,
+				Links:   doc.Links,
 			})
 			if err != nil {
 				return err

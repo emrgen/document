@@ -33,6 +33,7 @@ func init() {
 
 	rootCmd.AddCommand(publishedCmd)
 	publishedCmd.SetHelpCommand(&cobra.Command{Use: "no-help", Hidden: true})
+	publishedCmd.AddCommand(getPublishedDocCmd())
 	publishedCmd.AddCommand(listPublishedDocsCmd())
 	publishedCmd.AddCommand(listPublishedVersionsCmd())
 }
@@ -112,8 +113,7 @@ func createDocCmd() *cobra.Command {
 
 func getDocCmd() *cobra.Command {
 	var docID string
-	var latest bool
-	var version string
+	var version int64
 
 	var required = []string{"doc-id"}
 
@@ -126,64 +126,22 @@ func getDocCmd() *cobra.Command {
 				return
 			}
 
-			if latest || version != "" {
-				docVersion := version
-				if version != "" && version != "latest" {
-					// check if valid semver
-					_, err := semver.NewVersion(version)
-					if err != nil {
-						logrus.Error(err)
-						return
-					}
-				}
-
-				// override version if latest is set
-				if latest {
-					docVersion = "latest"
-				}
-
-				conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
-				if err != nil {
-					logrus.Error(err)
-					return
-				}
-				defer conn.Close()
-				client := v1.NewPublishedDocumentServiceClient(conn)
-				if err != nil {
-					logrus.Error(err)
-					return
-				}
-
-				res, err := client.GetPublishedDocument(tokenContext(), &v1.GetPublishedDocumentRequest{
-					Id:      docID,
-					Version: docVersion,
-				})
-				if err != nil {
-					return
-				}
-
-				table := tablewriter.NewWriter(os.Stdout)
-				table.SetHeader([]string{"ID", "Version", "Latest"})
-
-				table.Append([]string{res.Document.Id, res.Document.Version, "true"})
-				table.Render()
-
-				printField("Title", getTitle(res.Document.Meta))
-				printField("Content", res.Document.Content)
+			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				logrus.Error(err)
+				return
 			}
+			defer conn.Close()
 
-			if !latest && version == "" {
-				conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
-				if err != nil {
-					logrus.Error(err)
-					return
-				}
-				defer conn.Close()
-				client := v1.NewDocumentServiceClient(conn)
-
-				res, err := client.GetDocument(tokenContext(), &v1.GetDocumentRequest{
+			// return from backup if version is provided
+			if version != -1 {
+				client := v1.NewDocumentBackupServiceClient(conn)
+				req := &v1.GetDocumentBackupRequest{
 					DocumentId: docID,
-				})
+					Version:    version,
+				}
+
+				res, err := client.GetDocumentBackup(tokenContext(), req)
 				if err != nil {
 					logrus.Error(err)
 					return
@@ -191,24 +149,42 @@ func getDocCmd() *cobra.Command {
 
 				table := tablewriter.NewWriter(os.Stdout)
 				table.SetHeader([]string{"ID", "Version"})
-				var meta map[string]interface{}
-				err = json.Unmarshal([]byte(res.Document.Meta), &meta)
-				if err != nil {
-					logrus.Error(err)
-					return
-				}
-
 				table.Append([]string{res.Document.Id, strconv.FormatInt(res.Document.Version, 10)})
 				table.Render()
-				printField("Title", getTitle(res.Document.Meta))
-				printField("Content", res.Document.Content)
+
+				return
 			}
+
+			client := v1.NewDocumentServiceClient(conn)
+
+			req := &v1.GetDocumentRequest{
+				DocumentId: docID,
+			}
+
+			res, err := client.GetDocument(tokenContext(), req)
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+
+			table := tablewriter.NewWriter(os.Stdout)
+			table.SetHeader([]string{"ID", "Version"})
+			var meta map[string]interface{}
+			err = json.Unmarshal([]byte(res.Document.Meta), &meta)
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+
+			table.Append([]string{res.Document.Id, strconv.FormatInt(res.Document.Version, 10)})
+			table.Render()
+			printField("Title", getTitle(res.Document.Meta))
+			printField("Content", res.Document.Content)
 		},
 	}
 
 	command.Flags().StringVarP(&docID, "doc-id", "d", "", "document id (required)")
-	command.Flags().StringVarP(&version, "version", "v", "", "version of the document")
-	command.Flags().BoolVarP(&latest, "latest", "l", false, "get the latest version of the document")
+	command.Flags().Int64VarP(&version, "version", "v", -1, "version of the document")
 
 	command.SetHelpCommand(&cobra.Command{Use: "no-help", Hidden: true})
 	command.Flags().SortFlags = false
@@ -436,9 +412,9 @@ func listDocVersionsCmd() *cobra.Command {
 			for _, v := range res.Versions {
 				version := strconv.FormatInt(v.Version, 10)
 				if v.Version == res.LatestVersion {
-					table.Append([]string{version + " (latest)", v.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
+					table.Append([]string{version + " (current)", v.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
 				} else {
-					table.Append([]string{fmt.Sprintf("%-10s", version), v.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
+					table.Append([]string{fmt.Sprintf("%-11s", version), v.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
 				}
 			}
 
@@ -742,6 +718,69 @@ func removeLinkCmd() *cobra.Command {
 var publishedCmd = &cobra.Command{
 	Use:   "pub",
 	Short: "manage published documents",
+}
+
+func getPublishedDocCmd() *cobra.Command {
+	var docID string
+	var version string
+
+	var required = []string{"doc-id"}
+
+	command := &cobra.Command{
+		Use:     "get",
+		Short:   "get a document",
+		Example: "document get -d <doc-id> -v <version>",
+		Run: func(cmd *cobra.Command, args []string) {
+			if !checkMissingFlags(cmd, required) {
+				return
+			}
+
+			docVersion := "latest"
+			if version != "" {
+				// check if valid semver
+				_, err := semver.NewVersion(version)
+				if err != nil {
+					logrus.Error(err)
+					return
+				}
+				docVersion = version
+			}
+
+			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+			defer conn.Close()
+			client := v1.NewPublishedDocumentServiceClient(conn)
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+
+			res, err := client.GetPublishedDocument(tokenContext(), &v1.GetPublishedDocumentRequest{
+				Id:      docID,
+				Version: docVersion,
+			})
+			if err != nil {
+				return
+			}
+
+			table := tablewriter.NewWriter(os.Stdout)
+			table.SetHeader([]string{"ID", "Version", "Latest"})
+
+			table.Append([]string{res.Document.Id, res.Document.Version, "true"})
+			table.Render()
+
+			printField("Title", getTitle(res.Document.Meta))
+			printField("Content", res.Document.Content)
+		},
+	}
+
+	command.Flags().StringVarP(&docID, "doc-id", "d", "", "document id (required)")
+	command.Flags().StringVarP(&version, "version", "v", "", "version of the document")
+
+	return command
 }
 
 func listPublishedDocsCmd() *cobra.Command {

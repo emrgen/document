@@ -12,6 +12,7 @@ type DocumentBackup struct {
 	Version     int64  `gorm:"primaryKey;not null"`
 	DocumentID  string `gorm:"not null"`
 	Meta        string
+	Links       string
 	Content     string
 	Kind        string
 	UpdatedBy   string `gorm:"uuid;not null"`

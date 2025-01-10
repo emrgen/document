@@ -2,16 +2,19 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	v1 "github.com/emrgen/document/apis/v1"
+	"github.com/emrgen/document/internal/compress"
 	"github.com/emrgen/document/internal/store"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // NewDocumentBackupService creates a new document backup service
-func NewDocumentBackupService(store store.Store) *DocumentBackupService {
+func NewDocumentBackupService(compress compress.Compress, store store.Store) *DocumentBackupService {
 	return &DocumentBackupService{
-		store: store,
+		store:    store,
+		compress: compress,
 	}
 }
 
@@ -19,7 +22,8 @@ var _ v1.DocumentBackupServiceServer = (*DocumentBackupService)(nil)
 
 // DocumentBackupService implements v1.DocumentBackupServiceServer
 type DocumentBackupService struct {
-	store store.Store
+	store    store.Store
+	compress compress.Compress
 	v1.UnimplementedDocumentBackupServiceServer
 }
 
@@ -55,8 +59,45 @@ func (d *DocumentBackupService) CreateDocumentBackup(ctx context.Context, reques
 }
 
 func (d *DocumentBackupService) GetDocumentBackup(ctx context.Context, request *v1.GetDocumentBackupRequest) (*v1.GetDocumentBackupResponse, error) {
-	//TODO implement me
-	panic("implement me")
+	docID, err := uuid.Parse(request.GetDocumentId())
+	if err != nil {
+		return nil, err
+	}
+
+	backup, err := d.store.GetDocumentBackup(ctx, docID, request.GetVersion())
+	if err != nil {
+		return nil, err
+	}
+
+	meta, err := d.compress.Decode([]byte(backup.Meta))
+	if err != nil {
+		return nil, err
+	}
+
+	links, err := d.compress.Decode([]byte(backup.Links))
+	if err != nil {
+		return nil, err
+	}
+	if len(links) == 0 {
+		links = []byte("{}")
+	}
+
+	linkMap := make(map[string]string)
+	err = json.Unmarshal(links, &linkMap)
+	if err != nil {
+		return nil, err
+	}
+
+	return &v1.GetDocumentBackupResponse{
+		Document: &v1.Document{
+			Id:        backup.ID,
+			Content:   backup.Content,
+			Version:   backup.Version,
+			Meta:      string(meta),
+			Links:     linkMap,
+			CreatedAt: timestamppb.New(backup.CreatedAt),
+		},
+	}, nil
 }
 
 func (d *DocumentBackupService) DeleteDocumentBackup(ctx context.Context, request *v1.DeleteDocumentBackupRequest) (*v1.DeleteDocumentBackupResponse, error) {

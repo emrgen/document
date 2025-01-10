@@ -198,13 +198,13 @@ func (g *GormStore) ListDocumentBackups(ctx context.Context, docID uuid.UUID) ([
 	return backups, err
 }
 
-func (g *GormStore) GetDocumentBackup(ctx context.Context, docID uuid.UUID, version uint64) (*model.DocumentBackup, error) {
+func (g *GormStore) GetDocumentBackup(ctx context.Context, docID uuid.UUID, version int64) (*model.DocumentBackup, error) {
 	var backup model.DocumentBackup
 	err := g.db.Where("id = ? AND version = ?", docID, version).First(&backup).Error
 	return &backup, err
 }
 
-func (g *GormStore) DeleteDocumentBackup(ctx context.Context, docID uuid.UUID, version uint64) error {
+func (g *GormStore) DeleteDocumentBackup(ctx context.Context, docID uuid.UUID, version int64) error {
 	return g.db.Where("document_id = ? AND version = ?", docID, version).Delete(&model.DocumentBackup{}).Error
 }
 
