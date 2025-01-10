@@ -6,7 +6,7 @@ PKGS := $(shell go list ./... 2>&1 | grep -v 'github.com/emrgen/firstime/vendor'
 .PHONY: start air buf-deps proto clean-proto deps build clean lint test vet generate-client generate-docs client
 
 start:
-	go run main.go serve
+	go run ./main/main.go serve
 
 init:  proto deps generate-client
 
@@ -41,7 +41,7 @@ deps:
 	#cp -r /Users/subhasis/go/src/github.com/emrgen/blocktree /Users/subhasis/go/src/github.com/emrgen/blocktree
 
 build:
-	go build -o ./bin/doc ./main.go
+	go build -o ./bin/doc ./main/main.go
 
 clean:
 	@echo "Cleaning..."

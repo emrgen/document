@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Masterminds/semver"
+	"github.com/emrgen/document"
 	v1 "github.com/emrgen/document/apis/v1"
 	"github.com/fatih/color"
 	"github.com/google/uuid"
@@ -464,13 +465,12 @@ func addLinkCmd() *cobra.Command {
 				return
 			}
 
-			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			client, err := document.NewClient("4020")
 			if err != nil {
 				logrus.Error(err)
 				return
 			}
-			defer conn.Close()
-			client := v1.NewDocumentServiceClient(conn)
+			defer client.Close()
 
 			res, err := client.GetDocument(tokenContext(), &v1.GetDocumentRequest{
 				DocumentId: sourceID,
@@ -481,6 +481,10 @@ func addLinkCmd() *cobra.Command {
 
 			if res.Document.Links == nil {
 				res.Document.Links = make(map[string]string)
+			}
+
+			if targetVersion == "" {
+				targetVersion = "latest"
 			}
 
 			// add link to the document
@@ -547,17 +551,22 @@ func listLinksCmd() *cobra.Command {
 					logrus.Infof("no links found")
 				}
 
-				for link, v := range res.Document.Links {
-					data, err := json.Marshal(v)
-					if err != nil {
-						logrus.Warn(err)
+				table := tablewriter.NewWriter(os.Stdout)
+				table.SetHeader([]string{"ID", "Version"})
+				for link, _ := range res.Document.Links {
+					tokens := strings.Split(link, "@")
+					if len(tokens) != 2 {
+						logrus.Warnf("invalid link: %s, expected format: <id>@<version>", link)
 						continue
 					}
-					printField(link, string(data))
+
+					table.Append([]string{tokens[0], tokens[1]})
 				}
+
+				table.Render()
 				return
 			}
-
+		
 			if backlink {
 				conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
 				if err != nil {
@@ -585,7 +594,6 @@ func listLinksCmd() *cobra.Command {
 				table.Render()
 				return
 			}
-
 		},
 	}
 
@@ -1036,14 +1044,17 @@ func listPublishedLinksCommand() *cobra.Command {
 					logrus.Infof("no links found")
 				}
 
-				for link, v := range res.Document.Links {
-					data, err := json.Marshal(v)
-					if err != nil {
-						logrus.Warn(err)
+				table := tablewriter.NewWriter(os.Stdout)
+				table.SetHeader([]string{"ID", "Version"})
+				for link, _ := range res.Document.Links {
+					tokens := strings.Split(link, "@")
+					if len(tokens) != 2 {
+						logrus.Warnf("invalid link: %s, expected format: <id>@<version>", link)
 						continue
 					}
-					printField(link, string(data))
+					table.Append([]string{tokens[0], tokens[1]})
 				}
+				table.Render()
 				return
 			}
 
