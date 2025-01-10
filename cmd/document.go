@@ -59,7 +59,7 @@ func createDocCmd() *cobra.Command {
 		Use:     "create",
 		Short:   "create a document",
 		Long:    `create a document with the given name and content`,
-		Example: "document create -p <project-id> -d <doc_id> -t <title> -c <content>",
+		Example: "doc create -p <project-id> -d <doc_id> -t <title> -c <content>",
 		Run: func(cmd *cobra.Command, args []string) {
 			if checkMissingFlags(cmd, required) {
 				return
@@ -129,7 +129,7 @@ func getDocCmd() *cobra.Command {
 	command := &cobra.Command{
 		Use:     "get",
 		Short:   "get a document",
-		Example: "document get -d <doc-id> -v <version>",
+		Example: "doc get -d <doc-id> -v <version>",
 		Run: func(cmd *cobra.Command, args []string) {
 			if checkMissingFlags(cmd, required) {
 				return
@@ -236,9 +236,9 @@ func listDocCmd() *cobra.Command {
 			}
 
 			table := tablewriter.NewWriter(os.Stdout)
-			table.SetHeader([]string{"ID", "Title", "Version", "CreatedAt"})
+			table.SetHeader([]string{"ID", "Title", "Version", "Links", "Children"})
 			for _, doc := range res.Documents {
-				table.Append([]string{doc.Id, getTitle(doc.Meta), strconv.FormatInt(doc.Version, 10), doc.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
+				table.Append([]string{doc.Id, getTitle(doc.Meta), strconv.FormatInt(doc.Version, 10), strconv.Itoa(len(doc.Links)), strconv.Itoa(len(doc.Children))})
 			}
 
 			table.Render()
@@ -443,9 +443,9 @@ func listDocVersionsCmd() *cobra.Command {
 var linkCmd = &cobra.Command{
 	Use:   "link",
 	Short: "manage links between documents",
-	Example: `  document link add -s <source-id> -t <target-id>
-  document link list -d <doc-id> --published --backlink
-  document link remove -s <source-id> -t <target-id>`,
+	Example: `  doc link add -s <source-id> -t <target-id>
+  doc link list -d <doc-id> --published --backlink
+  doc link remove -s <source-id> -t <target-id>`,
 }
 
 func addLinkCmd() *cobra.Command {
@@ -458,7 +458,7 @@ func addLinkCmd() *cobra.Command {
 	command := &cobra.Command{
 		Use:     "add",
 		Short:   "add a link between two documents",
-		Example: "document link -s <source-id> -t <target-id>",
+		Example: "doc link -s <source-id> -t <target-id> -v <target-version>",
 
 		Run: func(cmd *cobra.Command, args []string) {
 			if checkMissingFlags(cmd, required) {
@@ -483,10 +483,6 @@ func addLinkCmd() *cobra.Command {
 				res.Document.Links = make(map[string]string)
 			}
 
-			if targetVersion == "" {
-				targetVersion = "latest"
-			}
-
 			// add link to the document
 			res.Document.Links[fmt.Sprintf("%s@%s", targetID, targetVersion)] = ""
 
@@ -504,7 +500,7 @@ func addLinkCmd() *cobra.Command {
 
 	command.Flags().StringVarP(&sourceID, "source-id", "s", "", "source document id (required)")
 	command.Flags().StringVarP(&targetID, "target-id", "t", "", "target document id (required)")
-	command.Flags().StringVarP(&targetVersion, "target-version", "v", "", "target document version")
+	command.Flags().StringVarP(&targetVersion, "target-version", "v", "current", "target document version")
 
 	command.Flags().SortFlags = false
 
@@ -521,22 +517,21 @@ func listLinksCmd() *cobra.Command {
 	command := &cobra.Command{
 		Use:        "list",
 		Short:      "list links related to a document",
-		Example:    "document link -d <doc-id> --published --backlink",
+		Example:    "doc link -d <doc-id> --published --backlink",
 		SuggestFor: []string{"links"},
 		Run: func(cmd *cobra.Command, args []string) {
 			if checkMissingFlags(cmd, required) {
 				return
 			}
 
-			if !backlink {
-				conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
-				if err != nil {
-					logrus.Error(err)
-					return
-				}
-				defer conn.Close()
-				client := v1.NewDocumentServiceClient(conn)
+			client, err := document.NewClient("4020")
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+			defer client.Close()
 
+			if !backlink {
 				res, err := client.GetDocument(tokenContext(), &v1.GetDocumentRequest{
 					DocumentId: docID,
 				})
@@ -566,18 +561,9 @@ func listLinksCmd() *cobra.Command {
 				table.Render()
 				return
 			}
-		
-			if backlink {
-				conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
-				if err != nil {
-					logrus.Error(err)
-					return
-				}
-				defer conn.Close()
-				client := v1.NewDocumentServiceClient(conn)
 
-				ctx := tokenContext()
-				res, err := client.ListBacklinks(ctx, &v1.ListBacklinksRequest{
+			if backlink {
+				res, err := client.ListBacklinks(tokenContext(), &v1.ListBacklinksRequest{
 					DocumentId: docID,
 				})
 				if err != nil {
@@ -665,21 +651,22 @@ func removeLinkCmd() *cobra.Command {
 var childCmd = &cobra.Command{
 	Use:   "child",
 	Short: "manage child documents",
-	Example: `  document child add -s <source-id> -t <target-id>
-  document child list -d <doc-id> --published
-  document child remove -s <source-id> -t <target-id>`,
+	Example: `  doc child add -s <source-id> -t <target-id>
+  doc child list -d <doc-id> --published
+  doc child remove -s <source-id> -t <target-id>`,
 }
 
 func addChildCmd() *cobra.Command {
-	var sourceID string
-	var targetID string
+	var parentID string
+	var childID string
+	var childVersion string
 
-	var required = []string{"source-id", "target-id"}
+	var required = []string{"parent-id", "child-id"}
 
 	command := &cobra.Command{
 		Use:     "add",
 		Short:   "add a child document",
-		Example: "document child add -s <source-id> -t <target-id>",
+		Example: "doc child add -p <parent-id> -c <child-id> -v <child-version>",
 		Run: func(cmd *cobra.Command, args []string) {
 			if checkMissingFlags(cmd, required) {
 				return
@@ -694,7 +681,7 @@ func addChildCmd() *cobra.Command {
 			client := v1.NewDocumentServiceClient(conn)
 
 			res, err := client.GetDocument(tokenContext(), &v1.GetDocumentRequest{
-				DocumentId: sourceID,
+				DocumentId: parentID,
 			})
 			if err != nil {
 				logrus.Error(err)
@@ -706,10 +693,12 @@ func addChildCmd() *cobra.Command {
 			}
 
 			// add link to the document
-			res.Document.Children = append(res.Document.Children, targetID)
+			res.Document.Children = append(res.Document.Children, fmt.Sprintf("%s@%s", childID, childVersion))
+			// remove duplicates
+			res.Document.Children = unique(res.Document.Children)
 
 			_, err = client.UpdateDocument(tokenContext(), &v1.UpdateDocumentRequest{
-				Id:       sourceID,
+				Id:       parentID,
 				Children: res.Document.Children,
 				Version:  res.Document.Version + 1,
 			})
@@ -720,8 +709,9 @@ func addChildCmd() *cobra.Command {
 		},
 	}
 
-	command.Flags().StringVarP(&sourceID, "source-id", "s", "", "source document id (required)")
-	command.Flags().StringVarP(&targetID, "target-id", "t", "", "target document id (required)")
+	command.Flags().StringVarP(&parentID, "parent-id", "p", "", "source document id (required)")
+	command.Flags().StringVarP(&childID, "child-id", "c", "", "target document id (required)")
+	command.Flags().StringVarP(&childVersion, "child-version", "v", "current", "child document version")
 	command.Flags().SortFlags = false
 
 	return command
@@ -736,7 +726,7 @@ func listChildCmd() *cobra.Command {
 	command := &cobra.Command{
 		Use:     "list",
 		Short:   "list child documents",
-		Example: `  document child list -d <doc-id> --published`,
+		Example: `  doc child list -d <doc-id> --published`,
 		Run: func(cmd *cobra.Command, args []string) {
 			if checkMissingFlags(cmd, required) {
 				return
@@ -846,9 +836,9 @@ func removeChildCmd() *cobra.Command {
 var publishedCmd = &cobra.Command{
 	Use:   "pub",
 	Short: "manage published documents",
-	Example: `  document pub get -d <doc-id> -v <version>
-  document pub list -p <project-id>
-  document pub versions -d <doc-id>`,
+	Example: `  doc pub get -d <doc-id> -v <version>
+  doc pub list -p <project-id>
+  doc pub versions -d <doc-id>`,
 }
 
 func getPublishedDocCmd() *cobra.Command {
@@ -860,7 +850,7 @@ func getPublishedDocCmd() *cobra.Command {
 	command := &cobra.Command{
 		Use:     "get",
 		Short:   "get a document",
-		Example: "document get -d <doc-id> -v <version>",
+		Example: "doc get -d <doc-id> -v <version>",
 		Run: func(cmd *cobra.Command, args []string) {
 			if checkMissingFlags(cmd, required) {
 				return
@@ -1229,4 +1219,19 @@ func checkMissingFlags(cmd *cobra.Command, flags []string) bool {
 func checkValidSemvar(ver string) bool {
 	_, err := semver.NewVersion(ver)
 	return err == nil
+}
+
+// unique returns a slice with unique elements
+func unique(s []string) []string {
+	seen := make(map[string]struct{}, len(s))
+	j := 0
+	for _, v := range s {
+		if _, ok := seen[v]; ok {
+			continue
+		}
+		seen[v] = struct{}{}
+		s[j] = v
+		j++
+	}
+	return s[:j]
 }

@@ -272,10 +272,31 @@ func (d DocumentService) ListDocuments(ctx context.Context, request *v1.ListDocu
 
 	var documentsProto []*v1.Document
 	for _, doc := range documents {
+		linksData, err := d.compress.Decode([]byte(doc.Links))
+		if err != nil {
+			return nil, err
+		}
+		childrenData, err := d.compress.Decode([]byte(doc.Children))
+		if err != nil {
+			return nil, err
+		}
+
+		links, err := parseLinks(string(linksData))
+		if err != nil {
+			return nil, err
+		}
+
+		children, err := parseChildren(string(childrenData))
+		if err != nil {
+			return nil, err
+		}
+
 		documentsProto = append(documentsProto, &v1.Document{
 			Id:        doc.ID,
 			Meta:      doc.Meta,
 			Version:   doc.Version,
+			Links:     links,
+			Children:  children,
 			CreatedAt: timestamppb.New(doc.CreatedAt),
 			UpdatedAt: timestamppb.New(doc.UpdatedAt),
 		})
@@ -788,4 +809,22 @@ func (d DocumentService) PublishDocument(ctx context.Context, request *v1.Publis
 			Version: latestDoc.Version,
 		},
 	}, nil
+}
+
+func parseLinks(links string) (map[string]string, error) {
+	var linksMap map[string]string
+	err := json.Unmarshal([]byte(links), &linksMap)
+	if err != nil {
+		return nil, err
+	}
+	return linksMap, nil
+}
+
+func parseChildren(children string) ([]string, error) {
+	var childrenList []string
+	err := json.Unmarshal([]byte(children), &childrenList)
+	if err != nil {
+		return nil, err
+	}
+	return childrenList, nil
 }
