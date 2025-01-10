@@ -147,6 +147,19 @@ func (g *GormStore) PublishDocument(ctx context.Context, doc *model.PublishedDoc
 		Version:   doc.Version,
 		Meta:      doc.Meta,
 		Links:     doc.Links,
+		Latest:    true,
+	}
+
+	// make sure the latest is set to true
+	doc.Latest = true
+
+	// make the last published document not the latest
+	if err := g.db.Model(&model.PublishedDocument{}).Where("id = ?", doc.ID).Order("created_at desc").Update("latest", false).Error; err != nil {
+		return err
+	}
+	// make the last published document meta not the latest
+	if err := g.db.Model(&model.PublishedDocumentMeta{}).Where("id = ?", doc.ID).Order("created_at desc").Update("latest", false).Error; err != nil {
+		return err
 	}
 
 	logrus.Infof("Publishing document %s version %s", doc.ID, doc.Version)

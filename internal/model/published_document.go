@@ -11,6 +11,7 @@ type PublishedDocument struct {
 	Meta        string
 	Content     string
 	Links       string
+	Latest      bool `gorm:"default:false"`
 	Unpublished bool `gorm:"default:false"`
 }
 
@@ -22,6 +23,7 @@ type PublishedDocumentMeta struct {
 	ProjectID   string `gorm:"uuid;primaryKey"`
 	Meta        string
 	Links       string
+	Latest      bool `gorm:"default:false"`
 	Unpublished bool `gorm:"default:false"`
 }
 

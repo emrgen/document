@@ -430,6 +430,9 @@ func listDocVersionsCmd() *cobra.Command {
 var linkCmd = &cobra.Command{
 	Use:   "link",
 	Short: "manage links between documents",
+	Example: `  document link add -s <source-id> -t <target-id>
+  document link list -d <doc-id> --published --backlink
+  document link remove -s <source-id> -t <target-id>`,
 }
 
 func addLinkCmd() *cobra.Command {
@@ -718,6 +721,9 @@ func removeLinkCmd() *cobra.Command {
 var publishedCmd = &cobra.Command{
 	Use:   "pub",
 	Short: "manage published documents",
+	Example: `  document pub get -d <doc-id> -v <version>
+  document pub list -p <project-id>
+  document pub versions -d <doc-id>`,
 }
 
 func getPublishedDocCmd() *cobra.Command {
