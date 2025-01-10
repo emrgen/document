@@ -29,6 +29,9 @@ func init() {
 	linkCmd.AddCommand(listLinksCmd())
 
 	rootCmd.AddCommand(removeLinkCmd())
+
+	publishedCmd := listPublishedDocsCmd()
+	rootCmd.AddCommand(publishedCmd)
 }
 
 func createDocCmd() *cobra.Command {
@@ -199,6 +202,7 @@ func getDocCmd() *cobra.Command {
 
 func listDocCmd() *cobra.Command {
 	var projectID string
+	var published bool
 
 	command := &cobra.Command{
 		Use:   "list",
@@ -238,6 +242,7 @@ func listDocCmd() *cobra.Command {
 	}
 
 	command.Flags().StringVarP(&projectID, "project", "p", "", "project id to list documents")
+	command.Flags().BoolVarP(&published, "pub", "u", false, "list published documents")
 
 	return command
 }
@@ -700,6 +705,50 @@ func listLinksCmd() *cobra.Command {
 	command.Flags().StringVarP(&docID, "doc-id", "d", "", "document id of the document")
 	command.Flags().StringVarP(&version, "version", "v", "", "version of the document")
 	command.Flags().BoolVarP(&backlink, "backlink", "b", false, "backlink id")
+
+	return command
+}
+
+func listPublishedDocsCmd() *cobra.Command {
+	var projectID string
+
+	command := &cobra.Command{
+		Use:   "pub",
+		Short: "list published documents",
+		Run: func(cmd *cobra.Command, args []string) {
+			if projectID == "" {
+				logrus.Errorf("missing required flag: --project-id")
+				return
+			}
+
+			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+			defer conn.Close()
+			client := v1.NewPublishedDocumentServiceClient(conn)
+
+			ctx := tokenContext()
+			res, err := client.ListPublishedDocuments(ctx, &v1.ListPublishedDocumentsRequest{
+				ProjectId: projectID,
+			})
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+
+			table := tablewriter.NewWriter(os.Stdout)
+			table.SetHeader([]string{"ID", "Version"})
+			for _, doc := range res.Documents {
+				table.Append([]string{doc.Id, doc.Version})
+			}
+
+			table.Render()
+		},
+	}
+
+	command.Flags().StringVarP(&projectID, "project", "p", "", "project id to list documents")
 
 	return command
 }

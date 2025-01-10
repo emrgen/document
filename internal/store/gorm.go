@@ -158,9 +158,9 @@ func (g *GormStore) GetPublishedDocumentByVersion(ctx context.Context, id uuid.U
 }
 
 // ListLatestPublishedDocuments returns a list of published documents for a project
-func (g *GormStore) ListLatestPublishedDocuments(ctx context.Context, docID uuid.UUID) ([]*model.LatestPublishedDocumentMeta, error) {
+func (g *GormStore) ListLatestPublishedDocuments(ctx context.Context, projectID uuid.UUID) ([]*model.LatestPublishedDocumentMeta, error) {
 	var docs []*model.LatestPublishedDocumentMeta
-	err := g.db.Where("id = ?", docID).Find(&docs).Error
+	err := g.db.Where("project_id = ?", projectID).Find(&docs).Error
 	return docs, err
 }
 
