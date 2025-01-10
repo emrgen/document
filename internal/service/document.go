@@ -93,7 +93,8 @@ func (d DocumentService) ListBacklinks(ctx context.Context, request *v1.ListBack
 	var backlinksProto []*v1.Link
 	for _, source := range backlinks {
 		backlinksProto = append(backlinksProto, &v1.Link{
-			SourceId: source.SourceID,
+			SourceId:      source.SourceID,
+			SourceVersion: model.CurrentDocumentVersion,
 		})
 	}
 
@@ -523,10 +524,10 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 					targetID := tokens[0]
 					targetVersion := tokens[1]
 					if _, ok := oldLinks[key]; !ok || oldLinks[key] != targetVersion {
-						newLinksMap[key] = targetVersion
+						newLinksMap[targetID] = targetVersion
 
 						// check if the target document is unpublished
-						if targetVersion == model.UnpublishedDocumentVersion {
+						if targetVersion == model.CurrentDocumentVersion {
 							unPublishedDocLinks = append(unPublishedDocLinks, &model.Document{
 								ID: targetID,
 							})
