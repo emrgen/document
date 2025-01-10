@@ -16,6 +16,8 @@ type Store interface {
 }
 
 type DocumentStore interface {
+	// ExistsDocuments checks if a document exists by ID.
+	ExistsDocuments(ctx context.Context, docs []*model.Document) (bool, error)
 	// CreateDocument creates a new document.
 	CreateDocument(ctx context.Context, doc *model.Document) error
 	// GetDocument retrieves a document by ID.
@@ -54,6 +56,8 @@ type DocumentBackupStore interface {
 }
 
 type PublishedDocumentStore interface {
+	// ExistsPublishedDocuments checks if a published document exists by ID.
+	ExistsPublishedDocuments(ctx context.Context, docs []*model.PublishedDocument) (bool, error)
 	// GetPublishedDocumentByVersion retrieves a published document by ID.
 	GetPublishedDocumentByVersion(ctx context.Context, id uuid.UUID, version string) (*model.PublishedDocument, error)
 	// ListLatestPublishedDocuments retrieves a list of published documents by project ID.
@@ -66,6 +70,8 @@ type PublishedDocumentStore interface {
 	ListPublishedDocumentVersions(ctx context.Context, id uuid.UUID) ([]*model.PublishedDocumentMeta, error)
 	// GetLatestPublishedDocumentMeta retrieves the latest published document meta by ID.
 	GetLatestPublishedDocumentMeta(ctx context.Context, id uuid.UUID) (*model.LatestPublishedDocumentMeta, error)
+	// CreatePublishedLinks creates a new published document.
+	CreatePublishedLinks(ctx context.Context, links []*model.PublishedLink) error
 	// ListPublishedBacklinks retrieves a list of backlinks by source ID.
 	ListPublishedBacklinks(ctx context.Context, targetID uuid.UUID, targetVersion string) ([]*model.PublishedLink, error)
 }

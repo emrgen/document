@@ -19,6 +19,7 @@ import (
 	status "google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gorm.io/gorm"
+	"strings"
 	"time"
 )
 
@@ -56,15 +57,15 @@ func (d DocumentService) ListBacklinks(ctx context.Context, request *v1.ListBack
 		return nil, err
 	}
 
-	var backlinksProto []*v1.Document
+	var backlinksProto []*v1.Link
 	for _, source := range backlinks {
-		backlinksProto = append(backlinksProto, &v1.Document{
-			Id: source.SourceID,
+		backlinksProto = append(backlinksProto, &v1.Link{
+			SourceId: source.SourceID,
 		})
 	}
 
 	return &v1.ListBacklinksResponse{
-		Documents: backlinksProto,
+		Links: backlinksProto,
 	}, nil
 }
 
@@ -394,62 +395,103 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 				logrus.Infof("old links: %v, new links: %v", clone.Links, request.GetLinks())
 
 				newLinks := request.GetLinks()
-				oldLinks := make(map[string]interface{})
+				oldLinks := make(map[string]string)
 				err = json.Unmarshal([]byte(clone.Links), &oldLinks)
 				if err != nil {
 					return err
 				}
 
 				// collect broken links
-				brokenLinks := make(map[string]interface{})
+				brokenLinks := make(map[string]string)
 				for key := range oldLinks {
+					tokens := strings.Split(key, "@")
+					if len(tokens) != 2 {
+						return errors.New("invalid link format")
+					}
+
 					if _, ok := newLinks[key]; !ok {
-						brokenLinks[key] = nil
+						brokenLinks[tokens[0]] = tokens[1]
 					}
 				}
 
 				// collect new links
-				newLinksMap := make(map[string]interface{})
+				newLinksMap := make(map[string]string)
+				publishedDocLinks := make([]*model.PublishedDocument, 0)
+				unPublishedDocLinks := make([]*model.Document, 0)
 				for key := range newLinks {
-					logrus.Infof("key %v", key)
-					if _, ok := oldLinks[key]; !ok {
-						newLinksMap[key] = nil
+					tokens := strings.Split(key, "@")
+					if len(tokens) != 2 {
+						return errors.New("invalid link format")
+					}
+
+					targetID := tokens[0]
+					targetVersion := tokens[1]
+					if _, ok := oldLinks[key]; !ok || oldLinks[key] != targetVersion {
+						newLinksMap[key] = targetVersion
+
+						// check if the target document is unpublished
+						if targetVersion == model.UnpublishedDocumentVersion {
+							unPublishedDocLinks = append(unPublishedDocLinks, &model.Document{
+								ID: targetID,
+							})
+						}
+
+						publishedDocLinks = append(publishedDocLinks, &model.PublishedDocument{
+							ID:      targetID,
+							Version: targetVersion,
+						})
+
 					}
 				}
 
-				// old link models
-				var oldLinkTargets []uuid.UUID
-				for key := range oldLinks {
-					id, err := uuid.Parse(key)
+				// check if the target unpublished documents exist, if not return an error
+				if len(unPublishedDocLinks) != 0 {
+					problem, err := tx.ExistsDocuments(ctx, unPublishedDocLinks)
 					if err != nil {
 						return err
 					}
-					oldLinkTargets = append(oldLinkTargets, id)
+					if problem {
+						return errors.New("target documents do not exist")
+					}
+				}
+
+				// check if the target published documents exist, if not return an error
+				if len(publishedDocLinks) != 0 {
+					problem, err := tx.ExistsPublishedDocuments(ctx, publishedDocLinks)
+					if err != nil {
+						return err
+					}
+
+					if problem {
+						return errors.New("target documents do not exist")
+					}
 				}
 
 				// new link models
 				var newLinkModels []*model.Link
-				for key := range newLinksMap {
+				for key, version := range newLinksMap {
 					newLinkModels = append(newLinkModels, &model.Link{
-						SourceID: doc.ID,
-						TargetID: key,
+						SourceID:      doc.ID,
+						TargetID:      key,
+						TargetVersion: version,
 					})
 				}
 
 				// old link models
-				var oldLinkModels []*model.Link
-				for key := range brokenLinks {
-					oldLinkModels = append(oldLinkModels, &model.Link{
-						SourceID: doc.ID,
-						TargetID: key,
+				var brokenLinkModels []*model.Link
+				for key, version := range brokenLinks {
+					brokenLinkModels = append(brokenLinkModels, &model.Link{
+						SourceID:      doc.ID,
+						TargetID:      key,
+						TargetVersion: version,
 					})
 				}
 
-				logrus.Infof("old links: %v, new links: %v", oldLinkModels, newLinkModels)
+				logrus.Infof("broken links: %v, new links: %v", brokenLinkModels, newLinkModels)
 
-				if len(oldLinkModels) != 0 {
+				if len(brokenLinkModels) != 0 {
 					// delete old links
-					err = tx.DeleteBacklinks(ctx, oldLinkModels)
+					err = tx.DeleteBacklinks(ctx, brokenLinkModels)
 					if err != nil {
 						return err
 					}
@@ -567,12 +609,10 @@ func (d DocumentService) PublishDocument(ctx context.Context, request *v1.Publis
 				ID:      doc.ID,
 				Version: version.String(),
 				Meta:    doc.Meta,
+				Links:   doc.Links,
 				Content: doc.Content,
 			}
-			err = tx.PublishDocument(ctx, latestDoc)
-			if err != nil {
-				return err
-			}
+
 			err = updateLatestPublishedDocumentCache(ctx, d.cache, doc.ID, latestDoc)
 			if err != nil {
 				logrus.Errorf("error updating cache: %v", err)
@@ -600,16 +640,57 @@ func (d DocumentService) PublishDocument(ctx context.Context, request *v1.Publis
 				ID:      doc.ID,
 				Version: version.String(),
 				Meta:    doc.Meta,
+				Links:   doc.Links,
 				Content: doc.Content,
 			}
-			err = tx.PublishDocument(ctx, latestDoc)
-			if err != nil {
-				return err
-			}
+
 			err = updateLatestPublishedDocumentCache(ctx, d.cache, doc.ID, latestDoc)
 			if err != nil {
 				logrus.Errorf("error updating cache: %v", err)
 			}
+		}
+
+		err = tx.PublishDocument(ctx, latestDoc)
+		if err != nil {
+			return err
+		}
+
+		// get the links
+		links := make(map[string]interface{})
+		if latestDoc.Links != "" {
+			linksData, err := d.compress.Decode([]byte(doc.Links))
+			if err != nil {
+				return err
+			}
+			err = json.Unmarshal(linksData, &links)
+			if err != nil {
+				return err
+			}
+		}
+
+		// create new links
+		var newLinks []*model.PublishedLink
+		for target := range links {
+			tokens := strings.Split(target, "@")
+			if len(tokens) != 2 {
+				return errors.New("invalid link format")
+			}
+
+			targetID := tokens[0]
+			targetVersion := tokens[1]
+
+			newLinks = append(newLinks, &model.PublishedLink{
+				SourceID:      doc.ID,
+				SourceVersion: latestDoc.Version,
+				TargetID:      targetID,
+				TargetVersion: targetVersion,
+			})
+		}
+
+		// create new links
+		err = tx.CreatePublishedLinks(ctx, newLinks)
+		if err != nil {
+			return err
 		}
 
 		return nil

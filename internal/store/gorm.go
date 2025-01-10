@@ -21,10 +21,25 @@ type GormStore struct {
 	db *gorm.DB
 }
 
+func (g *GormStore) ExistsDocuments(ctx context.Context, docs []*model.Document) (bool, error) {
+	return false, nil
+}
+
+func (g *GormStore) ExistsPublishedDocuments(ctx context.Context, docs []*model.PublishedDocument) (bool, error) {
+	return false, nil
+}
+
+func (g *GormStore) CreatePublishedLinks(ctx context.Context, links []*model.PublishedLink) error {
+	return g.db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "source_id"}, {Name: "target_id"}, {Name: "target_version"}, {Name: "source_version"}},
+		DoUpdates: clause.AssignmentColumns([]string{"source_id", "target_id", "target_version", "source_version"}),
+	}).Create(links).Error
+}
+
 func (g *GormStore) CreateBacklinks(ctx context.Context, links []*model.Link) error {
 	return g.db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "source_id"}, {Name: "target_id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"source_id", "target_id"}),
+		Columns:   []clause.Column{{Name: "source_id"}, {Name: "target_id"}, {Name: "target_version"}},
+		DoUpdates: clause.AssignmentColumns([]string{"source_id", "target_id", "target_version"}),
 	}).Create(links).Error
 }
 
@@ -97,12 +112,14 @@ func (g *GormStore) PublishDocument(ctx context.Context, doc *model.PublishedDoc
 		ID:      doc.ID,
 		Version: doc.Version,
 		Content: doc.Meta,
+		Links:   doc.Links,
 	}
 
 	latestDoc := &model.LatestPublishedDocument{
 		ID:      doc.ID,
 		Version: doc.Version,
 		Meta:    doc.Meta,
+		Links:   doc.Links,
 		Content: doc.Content,
 	}
 
@@ -110,6 +127,7 @@ func (g *GormStore) PublishDocument(ctx context.Context, doc *model.PublishedDoc
 		ID:      doc.ID,
 		Version: doc.Version,
 		Content: doc.Meta,
+		Links:   doc.Links,
 	}
 
 	logrus.Infof("Publishing document %s version %s", doc.ID, doc.Version)

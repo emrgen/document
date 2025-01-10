@@ -421,6 +421,7 @@ func listDocVersionsCmd() *cobra.Command {
 func addLinkCmd() *cobra.Command {
 	var sourceID string
 	var targetID string
+	var targetVersion string
 
 	command := &cobra.Command{
 		Use:     "link",
@@ -457,7 +458,9 @@ func addLinkCmd() *cobra.Command {
 			if res.Document.Links == nil {
 				res.Document.Links = make(map[string]string)
 			}
-			res.Document.Links[targetID] = ""
+
+			// add link to the document
+			res.Document.Links[fmt.Sprintf("%s@%s", targetID, targetVersion)] = ""
 
 			_, err = client.UpdateDocument(tokenContext(), &v1.UpdateDocumentRequest{
 				Id:      sourceID,
@@ -473,6 +476,7 @@ func addLinkCmd() *cobra.Command {
 
 	command.Flags().StringVarP(&sourceID, "source-id", "s", "", "source document id")
 	command.Flags().StringVarP(&targetID, "target-id", "t", "", "target document id")
+	command.Flags().StringVarP(&targetVersion, "target-version", "v", "", "target document version")
 
 	return command
 }
@@ -553,6 +557,41 @@ func listLinksCmd() *cobra.Command {
 				cmd.Help()
 				return
 			}
+			logrus.Infof("published: %t, backlink: %t", published, backlink)
+
+			if !published && !backlink {
+				conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+				if err != nil {
+					logrus.Error(err)
+					return
+				}
+				defer conn.Close()
+				client := v1.NewDocumentServiceClient(conn)
+
+				res, err := client.GetDocument(tokenContext(), &v1.GetDocumentRequest{
+					Id: docID,
+				})
+				if err != nil {
+					logrus.Error(err)
+					return
+				}
+
+				logrus.Infof("links: %v", res.Document.Links)
+
+				if res.Document.Links == nil || len(res.Document.Links) == 0 {
+					logrus.Infof("no links found")
+				}
+
+				for link, v := range res.Document.Links {
+					data, err := json.Marshal(v)
+					if err != nil {
+						logrus.Warn(err)
+						continue
+					}
+					printField(link, string(data))
+				}
+				return
+			}
 
 			if published && !backlink {
 				conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -592,8 +631,7 @@ func listLinksCmd() *cobra.Command {
 				return
 			}
 
-			logrus.Infof("published: %t, backlink: %t", published, backlink)
-			if !published && !backlink {
+			if !published && backlink {
 				conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
 				if err != nil {
 					logrus.Error(err)
@@ -602,28 +640,22 @@ func listLinksCmd() *cobra.Command {
 				defer conn.Close()
 				client := v1.NewDocumentServiceClient(conn)
 
-				res, err := client.GetDocument(tokenContext(), &v1.GetDocumentRequest{
-					Id: docID,
+				ctx := tokenContext()
+				res, err := client.ListBacklinks(ctx, &v1.ListBacklinksRequest{
+					DocumentId: docID,
 				})
 				if err != nil {
 					logrus.Error(err)
 					return
 				}
 
-				logrus.Infof("links: %v", res.Document.Links)
-
-				if res.Document.Links == nil || len(res.Document.Links) == 0 {
-					logrus.Infof("no links found")
+				table := tablewriter.NewWriter(os.Stdout)
+				table.SetHeader([]string{"ID", "Version"})
+				for _, link := range res.Links {
+					table.Append([]string{link.SourceId, link.SourceVersion})
 				}
 
-				for link, v := range res.Document.Links {
-					data, err := json.Marshal(v)
-					if err != nil {
-						logrus.Warn(err)
-						continue
-					}
-					printField(link, string(data))
-				}
+				table.Render()
 				return
 			}
 
@@ -652,37 +684,9 @@ func listLinksCmd() *cobra.Command {
 				}
 
 				table := tablewriter.NewWriter(os.Stdout)
-				table.SetHeader([]string{"ID"})
-				for _, doc := range res.Documents {
-					table.Append([]string{doc.Id})
-				}
-
-				table.Render()
-				return
-			}
-
-			if !published && backlink {
-				conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
-				if err != nil {
-					logrus.Error(err)
-					return
-				}
-				defer conn.Close()
-				client := v1.NewDocumentServiceClient(conn)
-
-				ctx := tokenContext()
-				res, err := client.ListBacklinks(ctx, &v1.ListBacklinksRequest{
-					DocumentId: docID,
-				})
-				if err != nil {
-					logrus.Error(err)
-					return
-				}
-
-				table := tablewriter.NewWriter(os.Stdout)
-				table.SetHeader([]string{"ID"})
-				for _, doc := range res.Documents {
-					table.Append([]string{doc.Id})
+				table.SetHeader([]string{"ID", "Version"})
+				for _, link := range res.Links {
+					table.Append([]string{link.SourceId, link.SourceVersion})
 				}
 
 				table.Render()

@@ -9,6 +9,7 @@ type PublishedDocument struct {
 	Version     string `gorm:"uuid;primaryKey"` // semantic versioning
 	Meta        string
 	Content     string
+	Links       string
 	Unpublished bool `gorm:"default:false"`
 }
 
@@ -18,6 +19,7 @@ type PublishedDocumentMeta struct {
 	ID          string `gorm:"uuid;primaryKey"`
 	Version     string `gorm:"uuid;primaryKey"` // semantic versioning
 	Content     string
+	Links       string
 	Unpublished bool `gorm:"default:false"`
 }
 
@@ -26,6 +28,7 @@ type LatestPublishedDocument struct {
 	ID      string `gorm:"uuid;primaryKey"`
 	Version string
 	Meta    string
+	Links   string
 	Content string
 }
 
@@ -34,4 +37,5 @@ type LatestPublishedDocumentMeta struct {
 	ID      string `gorm:"uuid;primaryKey"`
 	Version string
 	Content string
+	Links   string
 }

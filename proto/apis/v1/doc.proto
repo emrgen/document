@@ -10,6 +10,13 @@ import "google/protobuf/timestamp.proto";
 import "validate/validate.proto";
 import "google/protobuf/descriptor.proto";
 
+message Link {
+  string source_id = 1 [(validate.rules).string.uuid = true];
+  string source_version = 2;
+  string target_id = 3 [(validate.rules).string.uuid = true];
+  string target_version = 4;
+}
+
 enum DocumentKind {
   DOC_TEXT = 0;
   DOC_JSON = 1;
@@ -118,7 +125,7 @@ message ListBacklinksRequest {
 }
 
 message ListBacklinksResponse {
-  repeated Document documents = 1;
+  repeated Link links = 1;
   int32 total = 2;
 }
 
@@ -259,7 +266,6 @@ message ListPublishedDocumentVersionsResponse {
 }
 
 message ListPublishedBacklinksRequest {
-  string project_id = 1 [(validate.rules).string.uuid = true];
   string document_id = 2 [(validate.rules).string.uuid = true];
   string version = 3;
   int32 page = 5;
@@ -267,7 +273,7 @@ message ListPublishedBacklinksRequest {
 }
 
 message ListPublishedBacklinksResponse {
-  repeated PublishedDocument documents = 1;
+  repeated Link links = 1;
   int32 total = 2;
 }
 
@@ -316,7 +322,6 @@ service PublishedDocumentService {
     };
   }
 }
-
 
 message DocumentBackup {
   string id = 1 [(validate.rules).string.uuid = true];

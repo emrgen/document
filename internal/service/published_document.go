@@ -42,16 +42,18 @@ func (p *PublishedDocumentService) ListPublishedBacklinks(ctx context.Context, r
 		return nil, err
 	}
 
-	var backlinksProto []*v1.PublishedDocument
-	for _, source := range backlinks {
-		backlinksProto = append(backlinksProto, &v1.PublishedDocument{
-			Id:      source.SourceID,
-			Version: source.SourceVersion,
+	var backlinksProto []*v1.Link
+	for _, link := range backlinks {
+		backlinksProto = append(backlinksProto, &v1.Link{
+			SourceId:      link.SourceID,
+			SourceVersion: link.SourceVersion,
+			TargetId:      link.TargetID,
+			TargetVersion: link.TargetVersion,
 		})
 	}
 
 	return &v1.ListPublishedBacklinksResponse{
-		Documents: backlinksProto,
+		Links: backlinksProto,
 	}, nil
 }
 
