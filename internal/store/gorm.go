@@ -130,6 +130,7 @@ func (g *GormStore) PublishDocument(ctx context.Context, doc *model.PublishedDoc
 		Version:   doc.Version,
 		Meta:      doc.Meta,
 		Links:     doc.Links,
+		Children:  doc.Children,
 	}
 
 	latestDoc := &model.LatestPublishedDocument{
@@ -138,6 +139,7 @@ func (g *GormStore) PublishDocument(ctx context.Context, doc *model.PublishedDoc
 		Version:   doc.Version,
 		Meta:      doc.Meta,
 		Links:     doc.Links,
+		Children:  doc.Children,
 		Content:   doc.Content,
 	}
 
@@ -147,6 +149,7 @@ func (g *GormStore) PublishDocument(ctx context.Context, doc *model.PublishedDoc
 		Version:   doc.Version,
 		Meta:      doc.Meta,
 		Links:     doc.Links,
+		Children:  doc.Children,
 		Latest:    true,
 	}
 

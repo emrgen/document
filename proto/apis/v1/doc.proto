@@ -2,13 +2,13 @@ syntax = "proto3";
 
 package apis.v1;
 
-option go_package = "github.com/emrgen/document/proto/v1";
-
 import "google/api/annotations.proto";
-import "protoc-gen-openapiv2/options/annotations.proto";
-import "google/protobuf/timestamp.proto";
-import "validate/validate.proto";
 import "google/protobuf/descriptor.proto";
+import "google/protobuf/timestamp.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+import "validate/validate.proto";
+
+option go_package = "github.com/emrgen/document/proto/v1";
 
 message Link {
   string source_id = 1 [(validate.rules).string.uuid = true];
@@ -28,8 +28,9 @@ message Document {
   int64 version = 2;
   string meta = 3;
   string content = 4;
-  map<string,string> links = 5;
-  DocumentKind kind = 6; // default: treated as text
+  map<string, string> links = 5;
+  repeated string children = 6;
+  DocumentKind kind = 7; // default: treated as text
   google.protobuf.Timestamp created_at = 20;
   google.protobuf.Timestamp updated_at = 21;
 }
@@ -43,7 +44,8 @@ message CreateDocumentRequest {
   optional string document_id = 2 [(validate.rules).string.uuid = true];
   string meta = 3;
   string content = 4;
-  map<string,string> links = 5;
+  map<string, string> links = 5;
+  repeated string children = 6;
 }
 
 message CreateDocumentResponse {
@@ -95,7 +97,8 @@ message UpdateDocumentRequest {
   string id = 1 [(validate.rules).string.uuid = true];
   optional string meta = 2;
   optional string content = 3;
-  map<string,string> links = 4;
+  map<string, string> links = 4;
+  repeated string children = 5;
   int64 version = 10;
   UpdateKind kind = 11;
   google.protobuf.Timestamp updated_at = 21;
@@ -158,9 +161,7 @@ service DocumentService {
   }
 
   rpc GetDocument(GetDocumentRequest) returns (GetDocumentResponse) {
-    option (google.api.http) = {
-      get: "/v1/documents/{document_id}"
-    };
+    option (google.api.http) = {get: "/v1/documents/{document_id}"};
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       summary: "Get a document"
       description: "Get a document"
@@ -169,9 +170,7 @@ service DocumentService {
   }
 
   rpc ListDocuments(ListDocumentsRequest) returns (ListDocumentsResponse) {
-    option (google.api.http) = {
-      get: "/v1/documents"
-    };
+    option (google.api.http) = {get: "/v1/documents"};
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       summary: "List documents"
       description: "List documents"
@@ -180,9 +179,7 @@ service DocumentService {
   }
 
   rpc ListDocumentVersions(ListDocumentVersionsRequest) returns (ListDocumentVersionsResponse) {
-    option (google.api.http) = {
-      get: "/v1/documents/{document_id}/versions"
-    };
+    option (google.api.http) = {get: "/v1/documents/{document_id}/versions"};
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       summary: "List document versions"
       description: "List document versions"
@@ -203,9 +200,7 @@ service DocumentService {
   }
 
   rpc DeleteDocument(DeleteDocumentRequest) returns (DeleteDocumentResponse) {
-    option (google.api.http) = {
-      delete: "/v1/documents/{id}"
-    };
+    option (google.api.http) = {delete: "/v1/documents/{id}"};
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       summary: "Delete a document"
       description: "Delete a document"
@@ -214,9 +209,7 @@ service DocumentService {
   }
 
   rpc EraseDocument(EraseDocumentRequest) returns (EraseDocumentResponse) {
-    option (google.api.http) = {
-      delete: "/v1/documents/{id}/erase"
-    };
+    option (google.api.http) = {delete: "/v1/documents/{id}/erase"};
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       summary: "Erase a document"
       description: "Erase a document"
@@ -237,9 +230,7 @@ service DocumentService {
   }
 
   rpc ListBacklinks(ListBacklinksRequest) returns (ListBacklinksResponse) {
-    option (google.api.http) = {
-      get: "/v1/documents/{document_id}/backlinks"
-    };
+    option (google.api.http) = {get: "/v1/documents/{document_id}/backlinks"};
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       summary: "List backlinks"
       description: "List backlinks"
@@ -253,8 +244,9 @@ message PublishedDocument {
   string version = 2; // semver
   string meta = 3;
   string content = 4;
-  map<string,string> links = 5;
-  bool latest = 6;
+  map<string, string> links = 5;
+  repeated string children = 6;
+  PublishedDocumentVersion latest_version = 7;
 }
 
 message GetPublishedDocumentRequest {
@@ -265,6 +257,15 @@ message GetPublishedDocumentRequest {
 message GetPublishedDocumentResponse {
   PublishedDocument document = 1;
   PublishedDocumentVersion latest_version = 2;
+}
+
+message GetPublishedDocumentMetaRequest {
+  string document_id = 1 [(validate.rules).string.uuid = true];
+  string version = 2; // semver
+}
+
+message GetPublishedDocumentMetaResponse {
+  PublishedDocument document = 1;
 }
 
 message ListPublishedDocumentsRequest {
@@ -307,9 +308,7 @@ message ListPublishedBacklinksResponse {
 
 service PublishedDocumentService {
   rpc GetPublishedDocument(GetPublishedDocumentRequest) returns (GetPublishedDocumentResponse) {
-    option (google.api.http) = {
-      get: "/v1/published/{id}/version/{version}"
-    };
+    option (google.api.http) = {get: "/v1/published/{id}/version/{version}"};
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       summary: "Get a published document"
       description: "Get a published document"
@@ -317,10 +316,17 @@ service PublishedDocumentService {
     };
   }
 
-  rpc ListPublishedDocuments(ListPublishedDocumentsRequest) returns (ListPublishedDocumentsResponse) {
-    option (google.api.http) = {
-      get: "/v1/published"
+  rpc GetPublishedDocumentMeta(GetPublishedDocumentMetaRequest) returns (GetPublishedDocumentMetaResponse) {
+    option (google.api.http) = {get: "/v1/published/{document_id}/version/{version}/meta"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get a published document meta"
+      description: "Get a published document meta"
+      operation_id: "GetPublishedDocumentMeta"
     };
+  }
+
+  rpc ListPublishedDocuments(ListPublishedDocumentsRequest) returns (ListPublishedDocumentsResponse) {
+    option (google.api.http) = {get: "/v1/published"};
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       summary: "List published documents"
       description: "List published documents"
@@ -329,9 +335,7 @@ service PublishedDocumentService {
   }
 
   rpc ListPublishedDocumentVersions(ListPublishedDocumentVersionsRequest) returns (ListPublishedDocumentVersionsResponse) {
-    option (google.api.http) = {
-      get: "/v1/published/{id}/versions"
-    };
+    option (google.api.http) = {get: "/v1/published/{id}/versions"};
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       summary: "List published document versions"
       description: "List published document versions"
@@ -339,10 +343,8 @@ service PublishedDocumentService {
     };
   }
 
-    rpc ListPublishedBacklinks(ListPublishedBacklinksRequest) returns (ListPublishedBacklinksResponse) {
-    option (google.api.http) = {
-      get: "/v1/published/{document_id}/backlinks"
-    };
+  rpc ListPublishedBacklinks(ListPublishedBacklinksRequest) returns (ListPublishedBacklinksResponse) {
+    option (google.api.http) = {get: "/v1/published/{document_id}/backlinks"};
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       summary: "List published backlinks"
       description: "List published backlinks"
@@ -408,9 +410,7 @@ message RestoreDocumentBackupResponse {
 
 service DocumentBackupService {
   rpc ListDocumentBackups(ListDocumentBackupsRequest) returns (ListDocumentBackupsResponse) {
-    option (google.api.http) = {
-      get: "/v1/documents/{document_id}/versions"
-    };
+    option (google.api.http) = {get: "/v1/documents/{document_id}/versions"};
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       summary: "List document backups"
       description: "List document backups"
@@ -431,9 +431,7 @@ service DocumentBackupService {
   }
 
   rpc GetDocumentBackup(GetDocumentBackupRequest) returns (GetDocumentBackupResponse) {
-    option (google.api.http) = {
-      get: "/v1/documents/{document_id}/versions/{version}"
-    };
+    option (google.api.http) = {get: "/v1/documents/{document_id}/versions/{version}"};
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       summary: "Get a document backup"
       description: "Get a document backup"
@@ -442,9 +440,7 @@ service DocumentBackupService {
   }
 
   rpc DeleteDocumentBackup(DeleteDocumentBackupRequest) returns (DeleteDocumentBackupResponse) {
-    option (google.api.http) = {
-      delete: "/v1/documents/{document_id}/backups/{id}"
-    };
+    option (google.api.http) = {delete: "/v1/documents/{document_id}/backups/{id}"};
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       summary: "Delete a document backup"
       description: "Delete a document backup"

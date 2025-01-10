@@ -31,11 +31,19 @@ func init() {
 	linkCmd.AddCommand(removeLinkCmd())
 	linkCmd.AddCommand(listLinksCmd())
 
+	rootCmd.AddCommand(childCmd)
+	childCmd.SetHelpCommand(&cobra.Command{Use: "no-help", Hidden: true})
+	childCmd.AddCommand(addChildCmd())
+	childCmd.AddCommand(listChildCmd())
+	childCmd.AddCommand(removeChildCmd())
+
 	rootCmd.AddCommand(publishedCmd)
 	publishedCmd.SetHelpCommand(&cobra.Command{Use: "no-help", Hidden: true})
 	publishedCmd.AddCommand(getPublishedDocCmd())
 	publishedCmd.AddCommand(listPublishedDocsCmd())
 	publishedCmd.AddCommand(listPublishedVersionsCmd())
+	publishedCmd.AddCommand(listPublishedLinksCommand())
+	publishedCmd.AddCommand(listPublishedChildrenCmd())
 }
 
 func createDocCmd() *cobra.Command {
@@ -52,7 +60,7 @@ func createDocCmd() *cobra.Command {
 		Long:    `create a document with the given name and content`,
 		Example: "document create -p <project-id> -d <doc_id> -t <title> -c <content>",
 		Run: func(cmd *cobra.Command, args []string) {
-			if !checkMissingFlags(cmd, required) {
+			if checkMissingFlags(cmd, required) {
 				return
 			}
 
@@ -122,7 +130,7 @@ func getDocCmd() *cobra.Command {
 		Short:   "get a document",
 		Example: "document get -d <doc-id> -v <version>",
 		Run: func(cmd *cobra.Command, args []string) {
-			if !checkMissingFlags(cmd, required) {
+			if checkMissingFlags(cmd, required) {
 				return
 			}
 
@@ -168,7 +176,7 @@ func getDocCmd() *cobra.Command {
 			}
 
 			table := tablewriter.NewWriter(os.Stdout)
-			table.SetHeader([]string{"ID", "Version"})
+			table.SetHeader([]string{"ID", "Version", "Children", "Links"})
 			var meta map[string]interface{}
 			err = json.Unmarshal([]byte(res.Document.Meta), &meta)
 			if err != nil {
@@ -176,7 +184,11 @@ func getDocCmd() *cobra.Command {
 				return
 			}
 
-			table.Append([]string{res.Document.Id, strconv.FormatInt(res.Document.Version, 10)})
+			doc := res.Document
+
+			logrus.Infof("document: %s", doc.Links)
+
+			table.Append([]string{doc.Id, strconv.FormatInt(doc.Version, 10), strconv.Itoa(len(doc.Children)), strconv.Itoa(len(doc.Links))})
 			table.Render()
 			printField("Title", getTitle(res.Document.Meta))
 			printField("Content", res.Document.Content)
@@ -201,7 +213,7 @@ func listDocCmd() *cobra.Command {
 		Use:   "list",
 		Short: "list documents",
 		Run: func(cmd *cobra.Command, args []string) {
-			if !checkMissingFlags(cmd, required) {
+			if checkMissingFlags(cmd, required) {
 				return
 			}
 
@@ -257,7 +269,7 @@ Constraint:
  2. version provided => updates the document if (next version == current version + 1).
 `,
 		Run: func(cmd *cobra.Command, args []string) {
-			if !checkMissingFlags(cmd, required) {
+			if checkMissingFlags(cmd, required) {
 				return
 			}
 
@@ -332,7 +344,7 @@ func publishDocCmd() *cobra.Command {
 		Use:   "publish",
 		Short: "publish a document",
 		Run: func(cmd *cobra.Command, args []string) {
-			if !checkMissingFlags(cmd, required) {
+			if checkMissingFlags(cmd, required) {
 				return
 			}
 
@@ -386,7 +398,7 @@ func listDocVersionsCmd() *cobra.Command {
 		Use:   "versions",
 		Short: "list document versions",
 		Run: func(cmd *cobra.Command, args []string) {
-			if !checkMissingFlags(cmd, required) {
+			if checkMissingFlags(cmd, required) {
 				return
 			}
 
@@ -448,7 +460,7 @@ func addLinkCmd() *cobra.Command {
 		Example: "document link -s <source-id> -t <target-id>",
 
 		Run: func(cmd *cobra.Command, args []string) {
-			if !checkMissingFlags(cmd, required) {
+			if checkMissingFlags(cmd, required) {
 				return
 			}
 
@@ -497,7 +509,6 @@ func addLinkCmd() *cobra.Command {
 
 func listLinksCmd() *cobra.Command {
 	var docID string
-	var published bool
 	var version string
 	var backlink bool
 
@@ -509,13 +520,11 @@ func listLinksCmd() *cobra.Command {
 		Example:    "document link -d <doc-id> --published --backlink",
 		SuggestFor: []string{"links"},
 		Run: func(cmd *cobra.Command, args []string) {
-			if !checkMissingFlags(cmd, required) {
+			if checkMissingFlags(cmd, required) {
 				return
 			}
 
-			logrus.Infof("published: %t, backlink: %t", published, backlink)
-
-			if !published && !backlink {
+			if !backlink {
 				conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
 				if err != nil {
 					logrus.Error(err)
@@ -549,45 +558,7 @@ func listLinksCmd() *cobra.Command {
 				return
 			}
 
-			if published && !backlink {
-				conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
-				if err != nil {
-					logrus.Error(err)
-					return
-				}
-				defer conn.Close()
-				client := v1.NewPublishedDocumentServiceClient(conn)
-
-				docVersion := "latest"
-				if version != "" {
-					docVersion = version
-				}
-
-				res, err := client.GetPublishedDocument(tokenContext(), &v1.GetPublishedDocumentRequest{
-					Id:      docID,
-					Version: docVersion,
-				})
-				if err != nil {
-					logrus.Error(err)
-					return
-				}
-
-				if res.Document.Links == nil || len(res.Document.Links) == 0 {
-					logrus.Infof("no links found")
-				}
-
-				for link, v := range res.Document.Links {
-					data, err := json.Marshal(v)
-					if err != nil {
-						logrus.Warn(err)
-						continue
-					}
-					printField(link, string(data))
-				}
-				return
-			}
-
-			if !published && backlink {
+			if backlink {
 				conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
 				if err != nil {
 					logrus.Error(err)
@@ -615,44 +586,9 @@ func listLinksCmd() *cobra.Command {
 				return
 			}
 
-			if published && backlink {
-				conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
-				if err != nil {
-					logrus.Error(err)
-					return
-				}
-				defer conn.Close()
-				client := v1.NewPublishedDocumentServiceClient(conn)
-
-				docVersion := "latest"
-				if version != "" {
-					docVersion = version
-				}
-
-				ctx := tokenContext()
-				res, err := client.ListPublishedBacklinks(ctx, &v1.ListPublishedBacklinksRequest{
-					DocumentId: docID,
-					Version:    docVersion,
-				})
-				if err != nil {
-					logrus.Error(err)
-					return
-				}
-
-				table := tablewriter.NewWriter(os.Stdout)
-				table.SetHeader([]string{"ID", "Version"})
-				for _, link := range res.Links {
-					table.Append([]string{link.SourceId, link.SourceVersion})
-				}
-
-				table.Render()
-				return
-			}
-
 		},
 	}
 
-	command.Flags().BoolVarP(&published, "published", "p", false, "list backlinks from published document")
 	command.Flags().StringVarP(&docID, "doc-id", "d", "", "document id of the document")
 	command.Flags().StringVarP(&version, "version", "v", "", "version of the document")
 	command.Flags().BoolVarP(&backlink, "backlink", "b", false, "backlink id")
@@ -674,7 +610,7 @@ func removeLinkCmd() *cobra.Command {
 		Example: "document unlink -s <source-id> -t <target-id>",
 
 		Run: func(cmd *cobra.Command, args []string) {
-			if !checkMissingFlags(cmd, required) {
+			if checkMissingFlags(cmd, required) {
 				return
 			}
 			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -718,6 +654,187 @@ func removeLinkCmd() *cobra.Command {
 	return command
 }
 
+var childCmd = &cobra.Command{
+	Use:   "child",
+	Short: "manage child documents",
+	Example: `  document child add -s <source-id> -t <target-id>
+  document child list -d <doc-id> --published
+  document child remove -s <source-id> -t <target-id>`,
+}
+
+func addChildCmd() *cobra.Command {
+	var sourceID string
+	var targetID string
+
+	var required = []string{"source-id", "target-id"}
+
+	command := &cobra.Command{
+		Use:     "add",
+		Short:   "add a child document",
+		Example: "document child add -s <source-id> -t <target-id>",
+		Run: func(cmd *cobra.Command, args []string) {
+			if checkMissingFlags(cmd, required) {
+				return
+			}
+
+			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+			defer conn.Close()
+			client := v1.NewDocumentServiceClient(conn)
+
+			res, err := client.GetDocument(tokenContext(), &v1.GetDocumentRequest{
+				DocumentId: sourceID,
+			})
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+
+			if res.Document.Children == nil {
+				res.Document.Children = make([]string, 0)
+			}
+
+			// add link to the document
+			res.Document.Children = append(res.Document.Children, targetID)
+
+			_, err = client.UpdateDocument(tokenContext(), &v1.UpdateDocumentRequest{
+				Id:       sourceID,
+				Children: res.Document.Children,
+				Version:  res.Document.Version + 1,
+			})
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+		},
+	}
+
+	command.Flags().StringVarP(&sourceID, "source-id", "s", "", "source document id (required)")
+	command.Flags().StringVarP(&targetID, "target-id", "t", "", "target document id (required)")
+	command.Flags().SortFlags = false
+
+	return command
+}
+
+func listChildCmd() *cobra.Command {
+	var docID string
+	var version string
+
+	var required = []string{"doc-id"}
+
+	command := &cobra.Command{
+		Use:     "list",
+		Short:   "list child documents",
+		Example: `  document child list -d <doc-id> --published`,
+		Run: func(cmd *cobra.Command, args []string) {
+			if checkMissingFlags(cmd, required) {
+				return
+			}
+
+			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+			defer conn.Close()
+			client := v1.NewDocumentServiceClient(conn)
+
+			ctx := tokenContext()
+			res, err := client.GetDocument(ctx, &v1.GetDocumentRequest{
+				DocumentId: docID,
+			})
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+
+			table := tablewriter.NewWriter(os.Stdout)
+			table.SetHeader([]string{"ID", "Version"})
+			for _, child := range res.Document.Children {
+				tokens := strings.Split(child, "@")
+				if len(tokens) != 2 {
+					logrus.Warnf("invalid child link: %s, expected format: <id>@<version>", child)
+					continue
+				}
+				table.Append([]string{tokens[0], tokens[1]})
+			}
+
+			table.Render()
+		},
+	}
+
+	command.Flags().StringVarP(&docID, "doc-id", "d", "", "document id of the document")
+	command.Flags().StringVarP(&version, "version", "v", "", "version of the document")
+
+	command.Flags().SortFlags = false
+
+	return command
+}
+
+func removeChildCmd() *cobra.Command {
+	var sourceID string
+	var targetID string
+
+	var required = []string{"source-id", "target-id"}
+
+	command := &cobra.Command{
+		Use:     "remove",
+		Short:   "remove a child document",
+		Example: "document child remove -s <source-id> -t <target-id>",
+		Run: func(cmd *cobra.Command, args []string) {
+			if checkMissingFlags(cmd, required) {
+				return
+			}
+
+			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+			defer conn.Close()
+			client := v1.NewDocumentServiceClient(conn)
+
+			res, err := client.GetDocument(tokenContext(), &v1.GetDocumentRequest{
+				DocumentId: sourceID,
+			})
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+
+			if res.Document.Children == nil {
+				res.Document.Children = make([]string, 0)
+			}
+
+			// remove link from the document
+			for i, child := range res.Document.Children {
+				if child == targetID {
+					res.Document.Children = append(res.Document.Children[:i], res.Document.Children[i+1:]...)
+				}
+			}
+
+			_, err = client.UpdateDocument(tokenContext(), &v1.UpdateDocumentRequest{
+				Id:       sourceID,
+				Children: res.Document.Children,
+				Version:  res.Document.Version + 1,
+			})
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+		},
+	}
+
+	command.Flags().StringVarP(&sourceID, "source-id", "s", "", "source document id (required)")
+	command.Flags().StringVarP(&targetID, "target-id", "t", "", "target document id (required)")
+	command.Flags().SortFlags = false
+
+	return command
+}
+
 var publishedCmd = &cobra.Command{
 	Use:   "pub",
 	Short: "manage published documents",
@@ -737,7 +854,7 @@ func getPublishedDocCmd() *cobra.Command {
 		Short:   "get a document",
 		Example: "document get -d <doc-id> -v <version>",
 		Run: func(cmd *cobra.Command, args []string) {
-			if !checkMissingFlags(cmd, required) {
+			if checkMissingFlags(cmd, required) {
 				return
 			}
 
@@ -798,7 +915,7 @@ func listPublishedDocsCmd() *cobra.Command {
 		Use:   "list",
 		Short: "list published documents",
 		Run: func(cmd *cobra.Command, args []string) {
-			if !checkMissingFlags(cmd, required) {
+			if checkMissingFlags(cmd, required) {
 				return
 			}
 
@@ -843,7 +960,7 @@ func listPublishedVersionsCmd() *cobra.Command {
 		Use:   "versions",
 		Short: "list published document versions",
 		Run: func(cmd *cobra.Command, args []string) {
-			if !checkMissingFlags(cmd, required) {
+			if checkMissingFlags(cmd, required) {
 				return
 			}
 
@@ -879,6 +996,158 @@ func listPublishedVersionsCmd() *cobra.Command {
 	}
 
 	command.Flags().StringVarP(&docID, "doc-id", "d", "", "document id to list versions")
+
+	return command
+}
+
+func listPublishedLinksCommand() *cobra.Command {
+	var docID string
+	var backlink bool
+	var version string
+
+	command := &cobra.Command{
+		Use:   "links",
+		Short: "list published links",
+		Run: func(cmd *cobra.Command, args []string) {
+			if !backlink {
+				conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+				if err != nil {
+					logrus.Error(err)
+					return
+				}
+				defer conn.Close()
+				client := v1.NewPublishedDocumentServiceClient(conn)
+
+				docVersion := "latest"
+				if version != "" {
+					docVersion = version
+				}
+
+				res, err := client.GetPublishedDocument(tokenContext(), &v1.GetPublishedDocumentRequest{
+					Id:      docID,
+					Version: docVersion,
+				})
+				if err != nil {
+					logrus.Error(err)
+					return
+				}
+
+				if res.Document.Links == nil || len(res.Document.Links) == 0 {
+					logrus.Infof("no links found")
+				}
+
+				for link, v := range res.Document.Links {
+					data, err := json.Marshal(v)
+					if err != nil {
+						logrus.Warn(err)
+						continue
+					}
+					printField(link, string(data))
+				}
+				return
+			}
+
+			if backlink {
+				conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+				if err != nil {
+					logrus.Error(err)
+					return
+				}
+				defer conn.Close()
+				client := v1.NewPublishedDocumentServiceClient(conn)
+
+				docVersion := "latest"
+				if version != "" {
+					docVersion = version
+				}
+
+				ctx := tokenContext()
+				res, err := client.ListPublishedBacklinks(ctx, &v1.ListPublishedBacklinksRequest{
+					DocumentId: docID,
+					Version:    docVersion,
+				})
+				if err != nil {
+					logrus.Error(err)
+					return
+				}
+
+				table := tablewriter.NewWriter(os.Stdout)
+				table.SetHeader([]string{"ID", "Version"})
+				for _, link := range res.Links {
+					table.Append([]string{link.SourceId, link.SourceVersion})
+				}
+
+				table.Render()
+				return
+			}
+
+		},
+	}
+
+	command.Flags().StringVarP(&docID, "doc-id", "d", "", "document id of the document")
+	command.Flags().BoolVarP(&backlink, "backlink", "b", false, "backlink")
+	command.Flags().StringVarP(&version, "version", "v", "", "version of the document")
+
+	return command
+}
+
+func listPublishedChildrenCmd() *cobra.Command {
+	var docID string
+	var version string
+
+	var required = []string{"doc-id"}
+
+	command := &cobra.Command{
+		Use:   "children",
+		Short: "list published children",
+		Run: func(cmd *cobra.Command, args []string) {
+			if checkMissingFlags(cmd, required) {
+				return
+			}
+
+			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+			defer conn.Close()
+			client := v1.NewPublishedDocumentServiceClient(conn)
+
+			docVersion := "latest"
+			if version != "" {
+				if !checkValidSemvar(version) {
+					return
+				}
+				docVersion = version
+			}
+
+			ctx := tokenContext()
+			res, err := client.GetPublishedDocumentMeta(ctx, &v1.GetPublishedDocumentMetaRequest{
+				DocumentId: docID,
+				Version:    docVersion,
+			})
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+
+			table := tablewriter.NewWriter(os.Stdout)
+			table.SetHeader([]string{"ID", "Version"})
+			for _, child := range res.Document.Children {
+				tokens := strings.Split(child, "@")
+				if len(tokens) != 2 {
+					logrus.Warnf("invalid child link: %s, expected format: <id>@<version>", child)
+					continue
+				}
+				table.Append([]string{tokens[0], tokens[1]})
+			}
+
+			table.Render()
+		},
+	}
+
+	command.Flags().StringVarP(&docID, "doc-id", "d", "", "document id of the document")
+	command.Flags().StringVarP(&version, "version", "v", "", "version of the document")
 
 	return command
 }
@@ -940,8 +1209,13 @@ func checkMissingFlags(cmd *cobra.Command, flags []string) bool {
 
 		cmd.Usage()
 
-		return false
+		return true
 	}
 
-	return true
+	return false
+}
+
+func checkValidSemvar(ver string) bool {
+	_, err := semver.NewVersion(ver)
+	return err == nil
 }

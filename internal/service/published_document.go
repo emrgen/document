@@ -32,6 +32,43 @@ type PublishedDocumentService struct {
 	v1.UnimplementedPublishedDocumentServiceServer
 }
 
+func (p *PublishedDocumentService) GetPublishedDocumentMeta(ctx context.Context, request *v1.GetPublishedDocumentMetaRequest) (*v1.GetPublishedDocumentMetaResponse, error) {
+	docID, err := uuid.Parse(request.GetDocumentId())
+	if err != nil {
+		return nil, err
+	}
+
+	meta, err := p.store.GetLatestPublishedDocumentMeta(ctx, docID)
+	if err != nil {
+		return nil, err
+	}
+
+	var children []string
+	if meta.Children != "" {
+		err = json.Unmarshal([]byte(meta.Children), &children)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var links map[string]string
+	if meta.Links != "" {
+		err = json.Unmarshal([]byte(meta.Links), &links)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &v1.GetPublishedDocumentMetaResponse{
+		Document: &v1.PublishedDocument{
+			Id:       meta.ID,
+			Meta:     meta.Meta,
+			Links:    links,
+			Children: children,
+		},
+	}, nil
+}
+
 func (p *PublishedDocumentService) ListPublishedBacklinks(ctx context.Context, request *v1.ListPublishedBacklinksRequest) (*v1.ListPublishedBacklinksResponse, error) {
 	docID, err := uuid.Parse(request.GetDocumentId())
 	if err != nil {
@@ -91,12 +128,12 @@ func (p *PublishedDocumentService) GetPublishedDocument(ctx context.Context, req
 		}
 
 		document = &v1.PublishedDocument{
-			Id:      doc.ID,
-			Meta:    string(metaData),
-			Version: doc.Version,
-			Content: doc.Content,
-			Links:   links,
-			Latest:  true,
+			Id:            doc.ID,
+			Meta:          string(metaData),
+			Version:       doc.Version,
+			Content:       doc.Content,
+			Links:         links,
+			LatestVersion: latestVersion,
 		}
 		latestVersion = &v1.PublishedDocumentVersion{
 			Version:   doc.Version,
@@ -133,12 +170,12 @@ func (p *PublishedDocumentService) GetPublishedDocument(ctx context.Context, req
 		}
 
 		document = &v1.PublishedDocument{
-			Id:      doc.ID,
-			Meta:    string(metaData),
-			Version: doc.Version,
-			Content: doc.Content,
-			Links:   links,
-			Latest:  doc.Latest,
+			Id:            doc.ID,
+			Meta:          string(metaData),
+			Version:       doc.Version,
+			Content:       doc.Content,
+			Links:         links,
+			LatestVersion: latestVersion,
 		}
 	}
 

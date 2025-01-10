@@ -11,8 +11,9 @@ type PublishedDocument struct {
 	Meta        string
 	Content     string
 	Links       string
-	Latest      bool `gorm:"default:false"`
-	Unpublished bool `gorm:"default:false"`
+	Children    string `gorm:"not null;default:[]"`
+	Latest      bool   `gorm:"default:false"`
+	Unpublished bool   `gorm:"default:false"`
 }
 
 // PublishedDocumentMeta represents the metadata of a published document
@@ -23,8 +24,9 @@ type PublishedDocumentMeta struct {
 	ProjectID   string `gorm:"uuid;primaryKey"`
 	Meta        string
 	Links       string
-	Latest      bool `gorm:"default:false"`
-	Unpublished bool `gorm:"default:false"`
+	Children    string `gorm:"not null;default:[]"`
+	Latest      bool   `gorm:"default:false"`
+	Unpublished bool   `gorm:"default:false"`
 }
 
 type LatestPublishedDocument struct {
@@ -34,6 +36,7 @@ type LatestPublishedDocument struct {
 	Version   string
 	Meta      string
 	Links     string
+	Children  string `gorm:"not null;default:[]"`
 	Content   string
 }
 
@@ -55,4 +58,5 @@ type LatestPublishedDocumentMeta struct {
 	Version   string
 	Meta      string
 	Links     string
+	Children  string `gorm:"not null;default:[]"`
 }

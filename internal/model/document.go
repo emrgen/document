@@ -11,6 +11,7 @@ type Document struct {
 	ProjectID     string  `gorm:"uuid;not null"`
 	Meta          string  `gorm:"not null;default:{}"`
 	Content       string  `gorm:"not null"`
+	Children      string  `gorm:"not null;default:[]"`
 	Links         string  `gorm:"not null;default:{}"`
 	Backlinks     []*Link `gorm:"foreignKey:TargetID;references:ID"`
 	BacklinkCount int     // update trigger

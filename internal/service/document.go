@@ -116,11 +116,27 @@ func (d DocumentService) CreateDocument(ctx context.Context, request *v1.CreateD
 		return nil, err
 	}
 
+	linkData, err := json.Marshal(request.GetLinks())
+	if err != nil {
+		return nil, err
+	}
+
+	children, err := json.Marshal(request.GetLinks())
+	if err != nil {
+		return nil, err
+	}
+	childrenData, err := d.compress.Encode(children)
+	if err != nil {
+		return nil, err
+	}
+
 	projectID := request.GetProjectId()
 	doc := &model.Document{
 		ProjectID: projectID,
 		Meta:      string(metaData),
 		Content:   string(contentData),
+		Links:     string(linkData),
+		Children:  string(childrenData),
 		Version:   0,
 	}
 
@@ -183,12 +199,26 @@ func (d DocumentService) GetDocument(ctx context.Context, request *v1.GetDocumen
 		}
 	}
 
+	children := make([]string, 0)
+
+	if doc.Children != "" {
+		childrenData, err := d.compress.Decode([]byte(doc.Children))
+		if err != nil {
+			return nil, err
+		}
+		err = json.Unmarshal(childrenData, &children)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return &v1.GetDocumentResponse{
 		Document: &v1.Document{
 			Id:        doc.ID,
 			Content:   string(contentData),
 			Meta:      string(metaData),
 			Links:     links,
+			Children:  children,
 			Version:   doc.Version,
 			CreatedAt: timestamppb.New(doc.CreatedAt),
 			UpdatedAt: timestamppb.New(doc.UpdatedAt),
@@ -404,6 +434,18 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 				doc.Links = string(linksContent)
 			}
 
+			if request.Children != nil {
+				children, err := json.Marshal(request.GetChildren())
+				if err != nil {
+					return err
+				}
+				childrenData, err := d.compress.Encode(children)
+				if err != nil {
+					return err
+				}
+				doc.Children = string(childrenData)
+			}
+
 			if request.Content != nil {
 				contentData, err := d.compress.Encode([]byte(request.GetContent()))
 				if err != nil {
@@ -413,7 +455,7 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 			}
 			doc.Version = doc.Version + 1
 
-			if clone.Meta == doc.Meta && clone.Content == doc.Content && clone.Links == doc.Links {
+			if clone.Meta == doc.Meta && clone.Content == doc.Content && clone.Links == doc.Links && clone.Children == doc.Children {
 				return errors.New("document is not changed, skipping update")
 			}
 
@@ -646,6 +688,7 @@ func (d DocumentService) PublishDocument(ctx context.Context, request *v1.Publis
 				Meta:      doc.Meta,
 				Links:     doc.Links,
 				Content:   doc.Content,
+				Children:  doc.Children,
 			}
 
 			err = updateLatestPublishedDocumentCache(ctx, d.cache, doc.ID, latestDoc)
@@ -678,6 +721,7 @@ func (d DocumentService) PublishDocument(ctx context.Context, request *v1.Publis
 				Meta:      doc.Meta,
 				Links:     doc.Links,
 				Content:   doc.Content,
+				Children:  doc.Children,
 			}
 
 			err = updateLatestPublishedDocumentCache(ctx, d.cache, doc.ID, latestDoc)
