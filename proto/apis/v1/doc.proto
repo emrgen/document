@@ -254,6 +254,7 @@ message PublishedDocument {
   string meta = 3;
   string content = 4;
   map<string,string> links = 5;
+  bool latest = 6;
 }
 
 message GetPublishedDocumentRequest {

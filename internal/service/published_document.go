@@ -67,6 +67,7 @@ func (p *PublishedDocumentService) GetPublishedDocument(ctx context.Context, req
 
 	version := request.GetVersion()
 	var document *v1.PublishedDocument
+	var latestVersion *v1.PublishedDocumentVersion
 
 	if version == "latest" || version == "" {
 		// get the latest published document
@@ -94,6 +95,12 @@ func (p *PublishedDocumentService) GetPublishedDocument(ctx context.Context, req
 			Meta:    string(metaData),
 			Version: doc.Version,
 			Content: doc.Content,
+			Links:   links,
+			Latest:  true,
+		}
+		latestVersion = &v1.PublishedDocumentVersion{
+			Version:   doc.Version,
+			CreatedAt: timestamppb.New(doc.UpdatedAt),
 		}
 	} else {
 		// get the published document by version
@@ -104,6 +111,15 @@ func (p *PublishedDocumentService) GetPublishedDocument(ctx context.Context, req
 		metaData, err := p.compress.Decode([]byte(doc.Meta))
 		if err != nil {
 			return nil, err
+		}
+
+		latestDoc, err := p.store.GetLatestPublishedDocumentMeta(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		latestVersion = &v1.PublishedDocumentVersion{
+			Version:   latestDoc.Version,
+			CreatedAt: timestamppb.New(latestDoc.UpdatedAt),
 		}
 
 		linkData, err := p.compress.Decode([]byte(doc.Links))
@@ -122,11 +138,13 @@ func (p *PublishedDocumentService) GetPublishedDocument(ctx context.Context, req
 			Version: doc.Version,
 			Content: doc.Content,
 			Links:   links,
+			Latest:  doc.Latest,
 		}
 	}
 
 	return &v1.GetPublishedDocumentResponse{
-		Document: document,
+		Document:      document,
+		LatestVersion: latestVersion,
 	}, nil
 }
 

@@ -773,9 +773,9 @@ func getPublishedDocCmd() *cobra.Command {
 			}
 
 			table := tablewriter.NewWriter(os.Stdout)
-			table.SetHeader([]string{"ID", "Version", "Latest"})
+			table.SetHeader([]string{"ID", "Version", "Latest Version", "Last Published"})
 
-			table.Append([]string{res.Document.Id, res.Document.Version, "true"})
+			table.Append([]string{res.Document.Id, res.Document.Version, res.LatestVersion.Version, res.LatestVersion.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
 			table.Render()
 
 			printField("Title", getTitle(res.Document.Meta))
