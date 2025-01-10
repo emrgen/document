@@ -51,7 +51,7 @@ message CreateDocumentResponse {
 }
 
 message GetDocumentRequest {
-  string id = 2 [(validate.rules).string.uuid = true];
+  string document_id = 2 [(validate.rules).string.uuid = true];
 }
 
 message GetDocumentResponse {
@@ -144,7 +144,7 @@ service DocumentService {
 
   rpc GetDocument(GetDocumentRequest) returns (GetDocumentResponse) {
     option (google.api.http) = {
-      get: "/v1/documents/{id}"
+      get: "/v1/documents/{document_id}"
     };
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       summary: "Get a document"

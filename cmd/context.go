@@ -3,7 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/sirupsen/logrus"
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc/metadata"
@@ -40,7 +40,7 @@ func setContextCommand() *cobra.Command {
 		Short: "set context",
 		Run: func(cmd *cobra.Command, args []string) {
 			if token == "" || organization == "" {
-				logrus.Infof(`missing required flags: --token, --organization`)
+				color.Red(`missing: --token and --organization`)
 				return
 			}
 
@@ -85,7 +85,7 @@ func resetContextCommand() *cobra.Command {
 
 func verifyContext() {
 	if Token == "" {
-		logrus.Error("missing required flags: --token")
+		color.Red("missing: --token")
 		return
 	}
 }

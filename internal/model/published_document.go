@@ -20,7 +20,7 @@ type PublishedDocumentMeta struct {
 	ID          string `gorm:"uuid;primaryKey"`
 	Version     string `gorm:"uuid;primaryKey"` // semantic versioning
 	ProjectID   string `gorm:"uuid;primaryKey"`
-	Content     string
+	Meta        string
 	Links       string
 	Unpublished bool `gorm:"default:false"`
 }
@@ -29,7 +29,7 @@ type LatestPublishedDocument struct {
 	gorm.Model
 	ID        string `gorm:"uuid;primaryKey"`
 	ProjectID string `gorm:"uuid;primaryKey"`
-	Version   string
+	Version   string `gorm:"uuid;primaryKey"`
 	Meta      string
 	Links     string
 	Content   string
@@ -39,7 +39,7 @@ type LatestPublishedDocumentMeta struct {
 	gorm.Model
 	ID        string `gorm:"uuid;primaryKey"`
 	ProjectID string `gorm:"uuid;primaryKey"`
-	Version   string
-	Content   string
+	Version   string `gorm:"uuid;primaryKey"`
+	Meta      string
 	Links     string
 }

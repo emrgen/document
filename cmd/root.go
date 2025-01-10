@@ -9,7 +9,15 @@ import (
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "doc",
-	Short: "document CLI",
+	Short: "document management tool",
+	Example: `doc create -p <project-id> -c <content>
+doc get -d <doc-id>
+doc list -p <project-id> -published -latest
+doc update -d <doc-id> -c <content> -t <title>
+doc publish -d <doc-id> -v <version>
+doc unpublish -d <doc-id>
+doc versions -d <doc-id>
+doc delete -d <doc-id>`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -23,4 +31,8 @@ func Execute() {
 
 func init() {
 	rootCmd.AddCommand(dbCmd)
+	rootCmd.SetHelpCommand(&cobra.Command{Use: "no-help", Hidden: true})
+
+	rootCmd.CompletionOptions.HiddenDefaultCmd = true
+	cobra.EnableCommandSorting = false
 }

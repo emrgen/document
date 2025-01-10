@@ -6,7 +6,10 @@ import (
 	"github.com/google/uuid"
 )
 
-var ErrStoreNotFound = errors.New("store not found")
+var (
+	ErrStoreNotFound                   = errors.New("store not found")
+	ErrLatestPublishedDocumentNotFound = errors.New("latest published document not found")
+)
 
 type DocumentStoreProvider interface {
 	Provide(projectID uuid.UUID) (Store, error)

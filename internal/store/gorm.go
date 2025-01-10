@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"github.com/emrgen/document/internal/model"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -98,10 +99,17 @@ func (g *GormStore) GetLatestPublishedDocumentMeta(ctx context.Context, id uuid.
 
 func (g *GormStore) GetLatestPublishedDocument(ctx context.Context, id uuid.UUID) (*model.LatestPublishedDocument, error) {
 	var doc model.LatestPublishedDocument
-	err := g.db.Where("id = ?", id).Order("version desc").First(&doc).Error
+	err := g.db.Where("id = ?", id.String()).First(&doc).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrLatestPublishedDocumentNotFound
+		}
 		return nil, err
 	}
+	if &doc == nil {
+		return nil, ErrLatestPublishedDocumentNotFound
+	}
+
 	return &doc, err
 }
 
@@ -109,25 +117,28 @@ func (g *GormStore) GetLatestPublishedDocument(ctx context.Context, id uuid.UUID
 // NOTE: should run in a transaction
 func (g *GormStore) PublishDocument(ctx context.Context, doc *model.PublishedDocument) error {
 	latestDocMeta := &model.LatestPublishedDocumentMeta{
-		ID:      doc.ID,
-		Version: doc.Version,
-		Content: doc.Meta,
-		Links:   doc.Links,
+		ID:        doc.ID,
+		ProjectID: doc.ProjectID,
+		Version:   doc.Version,
+		Meta:      doc.Meta,
+		Links:     doc.Links,
 	}
 
 	latestDoc := &model.LatestPublishedDocument{
-		ID:      doc.ID,
-		Version: doc.Version,
-		Meta:    doc.Meta,
-		Links:   doc.Links,
-		Content: doc.Content,
+		ID:        doc.ID,
+		ProjectID: doc.ProjectID,
+		Version:   doc.Version,
+		Meta:      doc.Meta,
+		Links:     doc.Links,
+		Content:   doc.Content,
 	}
 
 	docMeta := &model.PublishedDocumentMeta{
-		ID:      doc.ID,
-		Version: doc.Version,
-		Content: doc.Meta,
-		Links:   doc.Links,
+		ID:        doc.ID,
+		ProjectID: doc.ProjectID,
+		Version:   doc.Version,
+		Meta:      doc.Meta,
+		Links:     doc.Links,
 	}
 
 	logrus.Infof("Publishing document %s version %s", doc.ID, doc.Version)

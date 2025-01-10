@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"os"
 	"strconv"
+	"strings"
 )
 
 func init() {
@@ -24,14 +25,15 @@ func init() {
 	rootCmd.AddCommand(publishDocCmd())
 	rootCmd.AddCommand(listDocVersionsCmd())
 
-	linkCmd := addLinkCmd()
 	rootCmd.AddCommand(linkCmd)
+	linkCmd.SetHelpCommand(&cobra.Command{Use: "no-help", Hidden: true})
+	linkCmd.AddCommand(addLinkCmd())
+	linkCmd.AddCommand(removeLinkCmd())
 	linkCmd.AddCommand(listLinksCmd())
 
-	rootCmd.AddCommand(removeLinkCmd())
-
-	publishedCmd := listPublishedDocsCmd()
 	rootCmd.AddCommand(publishedCmd)
+	publishedCmd.SetHelpCommand(&cobra.Command{Use: "no-help", Hidden: true})
+	publishedCmd.AddCommand(listPublishedDocsCmd())
 }
 
 func createDocCmd() *cobra.Command {
@@ -40,13 +42,15 @@ func createDocCmd() *cobra.Command {
 	var docTitle string
 	var content string
 
+	var required = []string{"project-id"}
+
 	command := &cobra.Command{
-		Use:   "create",
-		Short: "create a document",
-		Long:  `create a document with the given name and content`,
+		Use:     "create",
+		Short:   "create a document",
+		Long:    `create a document with the given name and content`,
+		Example: "document create -p <project-id> -d <doc_id> -t <title> -c <content>",
 		Run: func(cmd *cobra.Command, args []string) {
-			if projectID == "" {
-				logrus.Errorf("missing required flag: --project-id")
+			if !checkMissingFlags(cmd, required) {
 				return
 			}
 
@@ -95,10 +99,12 @@ func createDocCmd() *cobra.Command {
 		},
 	}
 
+	command.Flags().StringVarP(&projectID, "project-id", "p", "", "project id (required)")
 	command.Flags().StringVarP(&docID, "doc-id", "d", "", "document id")
-	command.Flags().StringVarP(&projectID, "project", "p", "", "project id to create the document in")
 	command.Flags().StringVarP(&docTitle, "title", "t", "", "title of the document")
 	command.Flags().StringVarP(&content, "content", "c", "", "content of the document")
+
+	command.Flags().SortFlags = false
 
 	return command
 }
@@ -108,12 +114,14 @@ func getDocCmd() *cobra.Command {
 	var latest bool
 	var version string
 
+	var required = []string{"doc-id"}
+
 	command := &cobra.Command{
-		Use:   "get",
-		Short: "get a document",
+		Use:     "get",
+		Short:   "get a document",
+		Example: "document get -d <doc-id> -v <version>",
 		Run: func(cmd *cobra.Command, args []string) {
-			if docID == "" {
-				logrus.Errorf("missing required flag: --doc-id")
+			if !checkMissingFlags(cmd, required) {
 				return
 			}
 
@@ -126,6 +134,11 @@ func getDocCmd() *cobra.Command {
 						logrus.Error(err)
 						return
 					}
+				}
+
+				// override version if latest is set
+				if latest {
+					docVersion = "latest"
 				}
 
 				conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -155,7 +168,7 @@ func getDocCmd() *cobra.Command {
 				table.Render()
 
 				cmd.Printf("Title: %s\n", getTitle(res.Document.Meta))
-				cmd.Printf("Content: %s\n", res.Document.Content)
+				cmd.Printf("Meta: %s\n", res.Document.Content)
 				color.Cyan("Title")
 			}
 
@@ -169,7 +182,7 @@ func getDocCmd() *cobra.Command {
 				client := v1.NewDocumentServiceClient(conn)
 
 				res, err := client.GetDocument(tokenContext(), &v1.GetDocumentRequest{
-					Id: docID,
+					DocumentId: docID,
 				})
 				if err != nil {
 					logrus.Error(err)
@@ -177,7 +190,7 @@ func getDocCmd() *cobra.Command {
 				}
 
 				table := tablewriter.NewWriter(os.Stdout)
-				table.SetHeader([]string{"ID", "Created At"})
+				table.SetHeader([]string{"ID", "Version"})
 				var meta map[string]interface{}
 				err = json.Unmarshal([]byte(res.Document.Meta), &meta)
 				if err != nil {
@@ -185,17 +198,20 @@ func getDocCmd() *cobra.Command {
 					return
 				}
 
-				table.Append([]string{res.Document.Id, res.Document.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
+				table.Append([]string{res.Document.Id, strconv.FormatInt(res.Document.Version, 10)})
 				table.Render()
 				printField("Title", getTitle(res.Document.Meta))
-				printField("Content", res.Document.Content)
+				printField("Meta", res.Document.Content)
 			}
 		},
 	}
 
-	command.Flags().StringVarP(&version, "version", "v", "", "version of the document to get")
+	command.Flags().StringVarP(&docID, "doc-id", "d", "", "document id (required)")
+	command.Flags().StringVarP(&version, "version", "v", "", "version of the document")
 	command.Flags().BoolVarP(&latest, "latest", "l", false, "get the latest version of the document")
-	command.Flags().StringVarP(&docID, "doc-id", "d", "", "document id to get")
+
+	command.SetHelpCommand(&cobra.Command{Use: "no-help", Hidden: true})
+	command.Flags().SortFlags = false
 
 	return command
 }
@@ -204,12 +220,12 @@ func listDocCmd() *cobra.Command {
 	var projectID string
 	var published bool
 
+	var required = []string{"project-id"}
 	command := &cobra.Command{
 		Use:   "list",
 		Short: "list documents",
 		Run: func(cmd *cobra.Command, args []string) {
-			if projectID == "" {
-				logrus.Errorf("missing required flag: --project-id")
+			if !checkMissingFlags(cmd, required) {
 				return
 			}
 
@@ -237,12 +253,12 @@ func listDocCmd() *cobra.Command {
 			}
 
 			table.Render()
-
 		},
 	}
 
-	command.Flags().StringVarP(&projectID, "project", "p", "", "project id to list documents")
+	command.Flags().StringVarP(&projectID, "project-id", "p", "", "project id (required)")
 	command.Flags().BoolVarP(&published, "pub", "u", false, "list published documents")
+	command.Flags().SortFlags = false
 
 	return command
 }
@@ -253,18 +269,24 @@ func updateDocCmd() *cobra.Command {
 	var content string
 	var version int64
 
+	var required = []string{"doc-id"}
+
 	command := &cobra.Command{
 		Use:   "update",
 		Short: "update a document",
+		Long: `Update a document with the given id.
+
+Constraint:
+ 1. version is not provided => the document will be overwritten with the current version + 1.
+ 2. version provided => updates the document if (next version == current version + 1).
+`,
 		Run: func(cmd *cobra.Command, args []string) {
-			if docID == "" {
-				logrus.Errorf("missing required flag: --doc-id")
+			if !checkMissingFlags(cmd, required) {
 				return
 			}
 
 			if version == -1 {
-				cmd.Printf("using update version %d\n", version)
-				cmd.Printf("overwriting document %s\n", docID)
+				color.Magenta("overwriting document: %s\n", docID)
 			}
 
 			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -314,10 +336,12 @@ func updateDocCmd() *cobra.Command {
 		},
 	}
 
-	command.Flags().StringVarP(&docID, "doc-id", "d", "", "document id to update")
-	command.Flags().StringVarP(&docTitle, "title", "t", "", "title of the document")
-	command.Flags().StringVarP(&content, "content", "c", "", "content of the document")
-	command.Flags().Int64VarP(&version, "version", "v", -1, "version of the document to update")
+	command.Flags().StringVarP(&docID, "doc-id", "d", "", "document id (required)")
+	command.Flags().StringVarP(&docTitle, "title", "t", "", "title")
+	command.Flags().StringVarP(&content, "content", "c", "", "content")
+	command.Flags().Int64VarP(&version, "version", "v", -1, "next version")
+
+	command.Flags().SortFlags = false
 
 	return command
 }
@@ -326,12 +350,13 @@ func publishDocCmd() *cobra.Command {
 	var docID string
 	var version string
 
+	var required = []string{"doc-id"}
+
 	command := &cobra.Command{
 		Use:   "publish",
 		Short: "publish a document",
 		Run: func(cmd *cobra.Command, args []string) {
-			if docID == "" {
-				logrus.Errorf("missing required flag: --doc-id")
+			if !checkMissingFlags(cmd, required) {
 				return
 			}
 
@@ -371,6 +396,7 @@ func publishDocCmd() *cobra.Command {
 
 	command.Flags().StringVarP(&docID, "doc-id", "d", "", "document id to publish")
 	command.Flags().StringVarP(&version, "version", "v", "", "version of the document to publish")
+	command.Flags().SortFlags = false
 
 	return command
 }
@@ -378,12 +404,13 @@ func publishDocCmd() *cobra.Command {
 func listDocVersionsCmd() *cobra.Command {
 	var docID string
 
+	var required = []string{"doc-id"}
+
 	command := &cobra.Command{
 		Use:   "versions",
 		Short: "list document versions",
 		Run: func(cmd *cobra.Command, args []string) {
-			if docID == "" {
-				logrus.Errorf("missing required flag: --doc-id")
+			if !checkMissingFlags(cmd, required) {
 				return
 			}
 
@@ -423,25 +450,25 @@ func listDocVersionsCmd() *cobra.Command {
 	return command
 }
 
+var linkCmd = &cobra.Command{
+	Use:   "link",
+	Short: "manage links between documents",
+}
+
 func addLinkCmd() *cobra.Command {
 	var sourceID string
 	var targetID string
 	var targetVersion string
 
+	var required = []string{"source-id", "target-id"}
+
 	command := &cobra.Command{
-		Use:     "link",
+		Use:     "add",
 		Short:   "add a link between two documents",
 		Example: "document link -s <source-id> -t <target-id>",
 
 		Run: func(cmd *cobra.Command, args []string) {
-			if sourceID == "" {
-				color.Red("missing required flag: --source-id")
-				cmd.Usage()
-				return
-			}
-
-			if targetID == "" {
-				color.Red("missing required flag: --target-id")
+			if !checkMissingFlags(cmd, required) {
 				return
 			}
 
@@ -454,7 +481,7 @@ func addLinkCmd() *cobra.Command {
 			client := v1.NewDocumentServiceClient(conn)
 
 			res, err := client.GetDocument(tokenContext(), &v1.GetDocumentRequest{
-				Id: sourceID,
+				DocumentId: sourceID,
 			})
 			if err != nil {
 				return
@@ -479,68 +506,11 @@ func addLinkCmd() *cobra.Command {
 		},
 	}
 
-	command.Flags().StringVarP(&sourceID, "source-id", "s", "", "source document id")
-	command.Flags().StringVarP(&targetID, "target-id", "t", "", "target document id")
+	command.Flags().StringVarP(&sourceID, "source-id", "s", "", "source document id (required)")
+	command.Flags().StringVarP(&targetID, "target-id", "t", "", "target document id (required)")
 	command.Flags().StringVarP(&targetVersion, "target-version", "v", "", "target document version")
 
-	return command
-}
-
-func removeLinkCmd() *cobra.Command {
-	var sourceID string
-	var targetID string
-
-	command := &cobra.Command{
-		Use:     "unlink",
-		Short:   "remove a link between two documents",
-		Example: "document unlink -s <source-id> -t <target-id>",
-
-		Run: func(cmd *cobra.Command, args []string) {
-			if sourceID == "" {
-				color.Red("missing required flag: --source-id")
-				cmd.Usage()
-				return
-			}
-
-			if targetID == "" {
-				color.Red("missing required flag: --target-id")
-				return
-			}
-
-			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
-			if err != nil {
-				logrus.Error(err)
-				return
-			}
-			defer conn.Close()
-			client := v1.NewDocumentServiceClient(conn)
-
-			res, err := client.GetDocument(tokenContext(), &v1.GetDocumentRequest{
-				Id: sourceID,
-			})
-			if err != nil {
-				return
-			}
-
-			if res.Document.Links == nil {
-				res.Document.Links = make(map[string]string)
-			}
-			delete(res.Document.Links, targetID)
-
-			_, err = client.UpdateDocument(tokenContext(), &v1.UpdateDocumentRequest{
-				Id:      sourceID,
-				Links:   res.Document.Links,
-				Version: res.Document.Version + 1,
-			})
-			if err != nil {
-				logrus.Error(err)
-				return
-			}
-		},
-	}
-
-	command.Flags().StringVarP(&sourceID, "source-id", "s", "", "source document id")
-	command.Flags().StringVarP(&targetID, "target-id", "t", "", "target document id")
+	command.Flags().SortFlags = false
 
 	return command
 }
@@ -551,17 +521,18 @@ func listLinksCmd() *cobra.Command {
 	var version string
 	var backlink bool
 
+	var required = []string{"doc-id"}
+
 	command := &cobra.Command{
 		Use:        "list",
 		Short:      "list links related to a document",
 		Example:    "document link -d <doc-id> --published --backlink",
 		SuggestFor: []string{"links"},
 		Run: func(cmd *cobra.Command, args []string) {
-			if docID == "" {
-				logrus.Errorf("missing required flag: --doc-id")
-				cmd.Help()
+			if !checkMissingFlags(cmd, required) {
 				return
 			}
+
 			logrus.Infof("published: %t, backlink: %t", published, backlink)
 
 			if !published && !backlink {
@@ -574,7 +545,7 @@ func listLinksCmd() *cobra.Command {
 				client := v1.NewDocumentServiceClient(conn)
 
 				res, err := client.GetDocument(tokenContext(), &v1.GetDocumentRequest{
-					Id: docID,
+					DocumentId: docID,
 				})
 				if err != nil {
 					logrus.Error(err)
@@ -706,18 +677,82 @@ func listLinksCmd() *cobra.Command {
 	command.Flags().StringVarP(&version, "version", "v", "", "version of the document")
 	command.Flags().BoolVarP(&backlink, "backlink", "b", false, "backlink id")
 
+	command.Flags().SortFlags = false
+
 	return command
+}
+
+func removeLinkCmd() *cobra.Command {
+	var sourceID string
+	var targetID string
+
+	var required = []string{"source-id", "target-id"}
+
+	command := &cobra.Command{
+		Use:     "remove",
+		Short:   "remove a link between two documents",
+		Example: "document unlink -s <source-id> -t <target-id>",
+
+		Run: func(cmd *cobra.Command, args []string) {
+			if !checkMissingFlags(cmd, required) {
+				return
+			}
+			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+			defer conn.Close()
+			client := v1.NewDocumentServiceClient(conn)
+
+			res, err := client.GetDocument(tokenContext(), &v1.GetDocumentRequest{
+				DocumentId: sourceID,
+			})
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+
+			if res.Document.Links == nil {
+				res.Document.Links = make(map[string]string)
+			}
+			delete(res.Document.Links, targetID)
+
+			_, err = client.UpdateDocument(tokenContext(), &v1.UpdateDocumentRequest{
+				Id:      sourceID,
+				Links:   res.Document.Links,
+				Version: res.Document.Version + 1,
+			})
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+
+			color.Green("link removed")
+		},
+	}
+
+	command.Flags().StringVarP(&sourceID, "source-id", "s", "", "source document id (required)")
+	command.Flags().StringVarP(&targetID, "target-id", "t", "", "target document id (required)")
+	command.Flags().SortFlags = false
+	return command
+}
+
+var publishedCmd = &cobra.Command{
+	Use:   "pub",
+	Short: "manage published documents",
 }
 
 func listPublishedDocsCmd() *cobra.Command {
 	var projectID string
 
+	var required = []string{"project-id"}
+
 	command := &cobra.Command{
-		Use:   "pub",
+		Use:   "list",
 		Short: "list published documents",
 		Run: func(cmd *cobra.Command, args []string) {
-			if projectID == "" {
-				logrus.Errorf("missing required flag: --project-id")
+			if !checkMissingFlags(cmd, required) {
 				return
 			}
 
@@ -748,7 +783,7 @@ func listPublishedDocsCmd() *cobra.Command {
 		},
 	}
 
-	command.Flags().StringVarP(&projectID, "project", "p", "", "project id to list documents")
+	command.Flags().StringVarP(&projectID, "project-id", "p", "", "project id (required)")
 
 	return command
 }
@@ -779,4 +814,39 @@ func printField(label, value string) {
 	fmt.Print(label)
 	color.Unset()
 	fmt.Printf(": %s\n", value)
+}
+
+// checkMissingFlags checks if the required flags are set and returns ok if they are set
+func checkMissingFlags(cmd *cobra.Command, flags []string) bool {
+	var missingFlags []string
+	var providedFlags []string
+	for _, required := range flags {
+		if cmd.Flag(required).Changed == false {
+			missingFlags = append(missingFlags, required)
+		} else {
+			value := cmd.Flag(required).Value.String()
+			providedFlags = append(providedFlags, fmt.Sprintf("--%s=%s", required, value))
+		}
+	}
+
+	if len(missingFlags) > 0 {
+		var msg string
+		for _, f := range missingFlags {
+			msg += fmt.Sprintf("--%s ", f)
+		}
+
+		color.Red("missing: %s\n", msg)
+		if len(providedFlags) > 0 {
+			provided := strings.Join(providedFlags, " ")
+			color.Green("provide: %s\n", provided)
+		}
+
+		cmd.Println("")
+
+		cmd.Usage()
+
+		return false
+	}
+
+	return true
 }

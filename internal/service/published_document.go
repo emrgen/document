@@ -126,7 +126,7 @@ func (p *PublishedDocumentService) ListPublishedDocuments(ctx context.Context, r
 
 	var documents []*v1.PublishedDocument
 	for _, doc := range docs {
-		metaData, err := p.compress.Decode([]byte(doc.Content))
+		metaData, err := p.compress.Decode([]byte(doc.Meta))
 		if err != nil {
 			return nil, err
 		}
@@ -181,7 +181,7 @@ func (p *PublishedDocumentService) ListPublishedDocumentVersions(ctx context.Con
 }
 
 func getPublishedDocumentByVersion(ctx context.Context, cache *cache.Redis, id uuid.UUID, version string) (*v1.PublishedDocument, error) {
-	cached, err := cache.Get(ctx, fmt.Sprintf("%s-%s", id, version))
+	cached, err := cache.Get(ctx, fmt.Sprintf("%s@%s", id, version))
 	if err == nil {
 		document := &v1.PublishedDocument{}
 		data, ok := cached.(string)

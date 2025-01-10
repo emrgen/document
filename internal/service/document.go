@@ -18,7 +18,6 @@ import (
 	"google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"gorm.io/gorm"
 	"strings"
 	"time"
 )
@@ -120,9 +119,9 @@ func (d DocumentService) GetDocument(ctx context.Context, request *v1.GetDocumen
 	// 	return doc, nil
 	// }
 
-	logrus.Infof("getting document id: %v", request.Id)
+	logrus.Infof("getting document id: %v", request.GetDocumentId())
 	// Get document from database
-	doc, err := d.store.GetDocument(ctx, uuid.MustParse(request.GetId()))
+	doc, err := d.store.GetDocument(ctx, uuid.MustParse(request.GetDocumentId()))
 	if err != nil {
 		return nil, err
 	}
@@ -571,6 +570,7 @@ func (d DocumentService) PublishDocument(ctx context.Context, request *v1.Publis
 
 	var latestDoc *model.PublishedDocument
 
+	// Publish the document in a transaction
 	err = d.store.Transaction(ctx, func(tx store.Store) error {
 		// Get the document from the database
 		doc, err := tx.GetDocument(ctx, docID)
@@ -580,12 +580,12 @@ func (d DocumentService) PublishDocument(ctx context.Context, request *v1.Publis
 
 		// Get latest published document
 		lastPublishedDoc, err := tx.GetLatestPublishedDocument(ctx, docID)
-		if err != nil && !errors.Is(gorm.ErrRecordNotFound, err) {
+		if err != nil && !errors.Is(store.ErrLatestPublishedDocumentNotFound, err) {
 			return err
 		}
 
 		// Check if the document is already published with the same content and metadata
-		if !request.GetForce() && lastPublishedDoc != nil && doc != nil && lastPublishedDoc.Meta == doc.Meta && lastPublishedDoc.Content == doc.Content {
+		if !request.GetForce() && lastPublishedDoc != nil && doc != nil && lastPublishedDoc.Meta == doc.Meta && lastPublishedDoc.Content == doc.Content && lastPublishedDoc.Links == doc.Links {
 			return errors.New("document is already published with version: " + lastPublishedDoc.Version)
 		}
 
@@ -606,11 +606,12 @@ func (d DocumentService) PublishDocument(ctx context.Context, request *v1.Publis
 			}
 
 			latestDoc = &model.PublishedDocument{
-				ID:      doc.ID,
-				Version: version.String(),
-				Meta:    doc.Meta,
-				Links:   doc.Links,
-				Content: doc.Content,
+				ID:        doc.ID,
+				ProjectID: doc.ProjectID,
+				Version:   version.String(),
+				Meta:      doc.Meta,
+				Links:     doc.Links,
+				Content:   doc.Content,
 			}
 
 			err = updateLatestPublishedDocumentCache(ctx, d.cache, doc.ID, latestDoc)
@@ -624,7 +625,7 @@ func (d DocumentService) PublishDocument(ctx context.Context, request *v1.Publis
 				return err
 			}
 			*version = version.IncPatch()
-
+ 
 			if request.GetVersion() != "" {
 				newVersion, err := semver.NewVersion(request.GetVersion())
 				if err != nil {
@@ -637,11 +638,12 @@ func (d DocumentService) PublishDocument(ctx context.Context, request *v1.Publis
 				version = newVersion
 			}
 			latestDoc = &model.PublishedDocument{
-				ID:      doc.ID,
-				Version: version.String(),
-				Meta:    doc.Meta,
-				Links:   doc.Links,
-				Content: doc.Content,
+				ID:        doc.ID,
+				ProjectID: doc.ProjectID,
+				Version:   version.String(),
+				Meta:      doc.Meta,
+				Links:     doc.Links,
+				Content:   doc.Content,
 			}
 
 			err = updateLatestPublishedDocumentCache(ctx, d.cache, doc.ID, latestDoc)
@@ -669,7 +671,8 @@ func (d DocumentService) PublishDocument(ctx context.Context, request *v1.Publis
 		}
 
 		// create new links
-		var newLinks []*model.PublishedLink
+		newLinks := make([]*model.PublishedLink, 0)
+
 		for target := range links {
 			tokens := strings.Split(target, "@")
 			if len(tokens) != 2 {
@@ -687,10 +690,12 @@ func (d DocumentService) PublishDocument(ctx context.Context, request *v1.Publis
 			})
 		}
 
-		// create new links
-		err = tx.CreatePublishedLinks(ctx, newLinks)
-		if err != nil {
-			return err
+		if len(newLinks) > 0 {
+			// create new links
+			err = tx.CreatePublishedLinks(ctx, newLinks)
+			if err != nil {
+				return err
+			}
 		}
 
 		return nil
@@ -710,10 +715,19 @@ func (d DocumentService) PublishDocument(ctx context.Context, request *v1.Publis
 // updateLatestPublishedDocumentCache updates the latest published document cache.
 // NOTE: without cache update the latest document will not be available immediately.
 func updateLatestPublishedDocumentCache(ctx context.Context, cache *cache.Redis, id string, doc *model.PublishedDocument) error {
+	links := make(map[string]string)
+	if doc.Links != "" {
+		err := json.Unmarshal([]byte(doc.Links), &links)
+		if err != nil {
+			return err
+		}
+	}
+
 	docProto := &v1.PublishedDocument{
 		Id:      doc.ID,
 		Version: doc.Version,
 		Meta:    doc.Meta,
+		Links:   links,
 		Content: doc.Content,
 	}
 	docData, err := json.Marshal(docProto)
@@ -721,12 +735,12 @@ func updateLatestPublishedDocumentCache(ctx context.Context, cache *cache.Redis,
 		return err
 	}
 
-	err = cache.Set(ctx, fmt.Sprintf("%s-%s", id, "latest"), string(docData), time.Minute*5)
+	err = cache.Set(ctx, fmt.Sprintf("%s@%s", id, "latest"), string(docData), time.Minute*5)
 	if err != nil {
 		return err
 	}
 
-	err = cache.Set(ctx, fmt.Sprintf("%s-%s", id, doc.Version), string(docData), time.Minute*5)
+	err = cache.Set(ctx, fmt.Sprintf("%s@%s", id, doc.Version), string(docData), time.Minute*5)
 	if err != nil {
 		return err
 	}
