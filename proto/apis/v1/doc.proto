@@ -126,14 +126,14 @@ message EraseDocumentResponse {
   Document document = 1;
 }
 
-message PublishDocumentRequest {
-  string document_id = 1 [(validate.rules).string.uuid = true];
+message PublishDocumentsRequest {
+  repeated string document_ids = 1;
   optional string version = 2; // semver
   bool force = 3;
 }
 
-message PublishDocumentResponse {
-  PublishedDocument document = 1;
+message PublishDocumentsResponse {
+  repeated PublishedDocument documents = 1;
 }
 
 message ListBacklinksRequest {
@@ -217,9 +217,9 @@ service DocumentService {
     };
   }
 
-  rpc PublishDocument(PublishDocumentRequest) returns (PublishDocumentResponse) {
+  rpc PublishDocuments(PublishDocumentsRequest) returns (PublishDocumentsResponse) {
     option (google.api.http) = {
-      post: "/v1/documents/{document_id}/publish"
+      post: "/v1/documents/-/publish"
       body: "*"
     };
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
@@ -256,7 +256,6 @@ message GetPublishedDocumentRequest {
 
 message GetPublishedDocumentResponse {
   PublishedDocument document = 1;
-  PublishedDocumentVersion latest_version = 2;
 }
 
 message GetPublishedDocumentMetaRequest {

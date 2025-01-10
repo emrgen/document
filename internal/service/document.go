@@ -659,143 +659,159 @@ func (d DocumentService) EraseDocument(ctx context.Context, request *v1.EraseDoc
 	}, nil
 }
 
-// PublishDocument publishes a document.
-func (d DocumentService) PublishDocument(ctx context.Context, request *v1.PublishDocumentRequest) (*v1.PublishDocumentResponse, error) {
-	docID, err := uuid.Parse(request.GetDocumentId())
-	if err != nil {
-		return nil, err
+// PublishDocuments publishes a document. This publishes multiple documents at once.
+// This is an atomic operation. If any of the documents fail to publish, the operation is rolled back.
+// This is useful for publishing documents that are linked to each other for example in a book.
+// TODO: A document is linked to another document. If the linked document is not published, the operation should fail. (optional feature)
+func (d DocumentService) PublishDocuments(ctx context.Context, request *v1.PublishDocumentsRequest) (*v1.PublishDocumentsResponse, error) {
+	var docIDs []uuid.UUID
+	for _, id := range request.GetDocumentIds() {
+		docID, err := uuid.Parse(id)
+		if err != nil {
+			return nil, err
+		}
+		docIDs = append(docIDs, docID)
 	}
 
 	var latestDoc *model.PublishedDocument
+	var documents []*v1.PublishedDocument
 
 	// Publish the document in a transaction
-	err = d.store.Transaction(ctx, func(tx store.Store) error {
-		// Get the document from the database
-		doc, err := tx.GetDocument(ctx, docID)
-		if err != nil {
-			return err
-		}
-
-		// Get latest published document
-		lastPublishedDoc, err := tx.GetLatestPublishedDocument(ctx, docID)
-		if err != nil && !errors.Is(store.ErrLatestPublishedDocumentNotFound, err) {
-			return err
-		}
-
-		// Check if the document is already published with the same content and metadata
-		if !request.GetForce() && lastPublishedDoc != nil && doc != nil && lastPublishedDoc.Meta == doc.Meta && lastPublishedDoc.Content == doc.Content && lastPublishedDoc.Links == doc.Links {
-			return errors.New("document is already published with version: " + lastPublishedDoc.Version)
-		}
-
-		// Create a new published document
-		if lastPublishedDoc == nil {
-			version, err := semver.NewVersion("0.0.1") // initial version
+	err := d.store.Transaction(ctx, func(tx store.Store) error {
+		for _, docID := range docIDs {
+			// Get the document from the database
+			doc, err := tx.GetDocument(ctx, docID)
 			if err != nil {
 				return err
 			}
 
-			// if the version is provided, use it
-			if request.GetVersion() != "" {
-				newVersion, err := semver.NewVersion(request.GetVersion())
+			// Get latest published document
+			lastPublishedDoc, err := tx.GetLatestPublishedDocument(ctx, docID)
+			if err != nil && !errors.Is(store.ErrLatestPublishedDocumentNotFound, err) {
+				return err
+			}
+
+			// Check if the document is already published with the same content and metadata
+			if !request.GetForce() && lastPublishedDoc != nil && doc != nil && lastPublishedDoc.Meta == doc.Meta && lastPublishedDoc.Content == doc.Content && lastPublishedDoc.Links == doc.Links {
+				return errors.New("document is already published with version: " + lastPublishedDoc.Version)
+			}
+
+			// Create a new published document
+			if lastPublishedDoc == nil {
+				version, err := semver.NewVersion("0.0.1") // initial version
 				if err != nil {
 					return err
 				}
-				version = newVersion
-			}
 
-			latestDoc = &model.PublishedDocument{
-				ID:        doc.ID,
-				ProjectID: doc.ProjectID,
-				Version:   version.String(),
-				Meta:      doc.Meta,
-				Links:     doc.Links,
-				Content:   doc.Content,
-				Children:  doc.Children,
-			}
+				// if the version is provided, use it
+				if request.GetVersion() != "" {
+					newVersion, err := semver.NewVersion(request.GetVersion())
+					if err != nil {
+						return err
+					}
+					version = newVersion
+				}
 
-			err = updateLatestPublishedDocumentCache(ctx, d.cache, doc.ID, latestDoc)
-			if err != nil {
-				logrus.Errorf("error updating cache: %v", err)
-			}
-		} else {
-			// Update the published document
-			version, err := semver.NewVersion(lastPublishedDoc.Version)
-			if err != nil {
-				return err
-			}
-			*version = version.IncPatch()
+				latestDoc = &model.PublishedDocument{
+					ID:        doc.ID,
+					ProjectID: doc.ProjectID,
+					Version:   version.String(),
+					Meta:      doc.Meta,
+					Links:     doc.Links,
+					Content:   doc.Content,
+					Children:  doc.Children,
+				}
 
-			if request.GetVersion() != "" {
-				newVersion, err := semver.NewVersion(request.GetVersion())
+				err = updateLatestPublishedDocumentCache(ctx, d.cache, doc.ID, latestDoc)
+				if err != nil {
+					logrus.Errorf("error updating cache: %v", err)
+				}
+			} else {
+				// Update the published document
+				version, err := semver.NewVersion(lastPublishedDoc.Version)
 				if err != nil {
 					return err
 				}
-				if newVersion.LessThan(version) {
-					return fmt.Errorf("new version must be greater than current version")
+				*version = version.IncPatch()
+
+				if request.GetVersion() != "" {
+					newVersion, err := semver.NewVersion(request.GetVersion())
+					if err != nil {
+						return err
+					}
+					if newVersion.LessThan(version) {
+						return fmt.Errorf("new version must be greater than current version")
+					}
+
+					version = newVersion
+				}
+				latestDoc = &model.PublishedDocument{
+					ID:        doc.ID,
+					ProjectID: doc.ProjectID,
+					Version:   version.String(),
+					Meta:      doc.Meta,
+					Links:     doc.Links,
+					Content:   doc.Content,
+					Children:  doc.Children,
 				}
 
-				version = newVersion
-			}
-			latestDoc = &model.PublishedDocument{
-				ID:        doc.ID,
-				ProjectID: doc.ProjectID,
-				Version:   version.String(),
-				Meta:      doc.Meta,
-				Links:     doc.Links,
-				Content:   doc.Content,
-				Children:  doc.Children,
+				err = updateLatestPublishedDocumentCache(ctx, d.cache, doc.ID, latestDoc)
+				if err != nil {
+					logrus.Errorf("error updating cache: %v", err)
+				}
 			}
 
-			err = updateLatestPublishedDocumentCache(ctx, d.cache, doc.ID, latestDoc)
-			if err != nil {
-				logrus.Errorf("error updating cache: %v", err)
-			}
-		}
-
-		err = tx.PublishDocument(ctx, latestDoc)
-		if err != nil {
-			return err
-		}
-
-		// get the links
-		links := make(map[string]interface{})
-		if latestDoc.Links != "" {
-			linksData, err := d.compress.Decode([]byte(doc.Links))
+			err = tx.PublishDocument(ctx, latestDoc)
 			if err != nil {
 				return err
 			}
-			err = json.Unmarshal(linksData, &links)
-			if err != nil {
-				return err
+
+			// get the links
+			links := make(map[string]interface{})
+			if latestDoc.Links != "" {
+				linksData, err := d.compress.Decode([]byte(doc.Links))
+				if err != nil {
+					return err
+				}
+				err = json.Unmarshal(linksData, &links)
+				if err != nil {
+					return err
+				}
 			}
-		}
 
-		// create new links
-		newLinks := make([]*model.PublishedLink, 0)
-
-		for target := range links {
-			tokens := strings.Split(target, "@")
-			if len(tokens) != 2 {
-				return errors.New("invalid link format")
-			}
-
-			targetID := tokens[0]
-			targetVersion := tokens[1]
-
-			newLinks = append(newLinks, &model.PublishedLink{
-				SourceID:      doc.ID,
-				SourceVersion: latestDoc.Version,
-				TargetID:      targetID,
-				TargetVersion: targetVersion,
-			})
-		}
-
-		if len(newLinks) > 0 {
 			// create new links
-			err = tx.CreatePublishedLinks(ctx, newLinks)
-			if err != nil {
-				return err
+			newLinks := make([]*model.PublishedLink, 0)
+
+			for target := range links {
+				tokens := strings.Split(target, "@")
+				if len(tokens) != 2 {
+					return errors.New("invalid link format")
+				}
+
+				targetID := tokens[0]
+				targetVersion := tokens[1]
+
+				newLinks = append(newLinks, &model.PublishedLink{
+					SourceID:      doc.ID,
+					SourceVersion: latestDoc.Version,
+					TargetID:      targetID,
+					TargetVersion: targetVersion,
+				})
 			}
+
+			if len(newLinks) > 0 {
+				// create new links
+				err = tx.CreatePublishedLinks(ctx, newLinks)
+				if err != nil {
+					return err
+				}
+			}
+
+			// collect the updated document
+			documents = append(documents, &v1.PublishedDocument{
+				Id:      doc.ID,
+				Version: latestDoc.Version,
+			})
 		}
 
 		return nil
@@ -804,11 +820,8 @@ func (d DocumentService) PublishDocument(ctx context.Context, request *v1.Publis
 		return nil, err
 	}
 
-	return &v1.PublishDocumentResponse{
-		Document: &v1.PublishedDocument{
-			Id:      latestDoc.ID,
-			Version: latestDoc.Version,
-		},
+	return &v1.PublishDocumentsResponse{
+		Documents: documents,
 	}, nil
 }
 

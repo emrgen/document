@@ -46,8 +46,9 @@ func (l *LatestPublishedDocument) IntoPublishedDocument() *PublishedDocument {
 		ProjectID: l.ProjectID,
 		Version:   l.Version,
 		Meta:      l.Meta,
-		Links:     l.Links,
 		Content:   l.Content,
+		Links:     l.Links,
+		Children:  l.Children,
 	}
 }
 

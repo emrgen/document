@@ -357,8 +357,8 @@ func publishDocCmd() *cobra.Command {
 			defer conn.Close()
 			client := v1.NewDocumentServiceClient(conn)
 
-			req := &v1.PublishDocumentRequest{
-				DocumentId: docID,
+			req := &v1.PublishDocumentsRequest{
+				DocumentIds: []string{docID},
 			}
 
 			if version != "" {
@@ -370,7 +370,7 @@ func publishDocCmd() *cobra.Command {
 				req.Version = &version
 			}
 
-			res, err := client.PublishDocument(tokenContext(), req)
+			res, err := client.PublishDocuments(tokenContext(), req)
 			if err != nil {
 				logrus.Error(err)
 				return
@@ -378,7 +378,9 @@ func publishDocCmd() *cobra.Command {
 
 			table := tablewriter.NewWriter(os.Stdout)
 			table.SetHeader([]string{"ID", "Version"})
-			table.Append([]string{res.Document.Id, res.Document.Version})
+			for _, doc := range res.Documents {
+				table.Append([]string{doc.Id, doc.Version})
+			}
 			table.Render()
 		},
 	}
@@ -863,14 +865,13 @@ func getPublishedDocCmd() *cobra.Command {
 			}
 
 			docVersion := "latest"
-			if version != "" {
-				// check if valid semver
-				_, err := semver.NewVersion(version)
-				if err != nil {
-					logrus.Error(err)
+			if version != "" && !strings.EqualFold(version, "latest") {
+				if checkValidSemvar(version) {
+					docVersion = version
+				} else {
+					color.Red("invalid version format, expected semver")
 					return
 				}
-				docVersion = version
 			}
 
 			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -893,10 +894,18 @@ func getPublishedDocCmd() *cobra.Command {
 				return
 			}
 
+			// print document details
 			table := tablewriter.NewWriter(os.Stdout)
-			table.SetHeader([]string{"ID", "Version", "Latest Version", "Last Published"})
+			table.SetHeader([]string{"ID", "Version", "Links", "Children", "Latest Version", "Last Published"})
 
-			table.Append([]string{res.Document.Id, res.Document.Version, res.LatestVersion.Version, res.LatestVersion.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
+			table.Append([]string{
+				res.Document.Id,
+				res.Document.Version,
+				strconv.Itoa(len(res.Document.Links)),
+				strconv.Itoa(len(res.Document.Children)),
+				res.Document.LatestVersion.Version,
+				res.Document.LatestVersion.CreatedAt.AsTime().Format("2006-01-02 15:04:05"),
+			})
 			table.Render()
 
 			printField("Title", getTitle(res.Document.Meta))

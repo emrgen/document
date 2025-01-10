@@ -103,94 +103,68 @@ func (p *PublishedDocumentService) GetPublishedDocument(ctx context.Context, req
 	}
 
 	version := request.GetVersion()
-	var document *v1.PublishedDocument
-	var latestVersion *v1.PublishedDocumentVersion
+	var publishedDocument *model.PublishedDocument
 
 	if version == "latest" || version == "" {
-		// get the latest published document
+		// get the latest published publishedDocument
 		doc, err := p.store.GetLatestPublishedDocument(ctx, id)
 		if err != nil {
 			return nil, err
 		}
-		metaData, err := p.compress.Decode([]byte(doc.Meta))
-		if err != nil {
-			return nil, err
-		}
-
-		linkData, err := p.compress.Decode([]byte(doc.Links))
-		if err != nil {
-			return nil, err
-		}
-		links := make(map[string]string)
-		err = json.Unmarshal(linkData, &links)
-		if err != nil {
-			return nil, err
-		}
-
-		document = &v1.PublishedDocument{
-			Id:            doc.ID,
-			Meta:          string(metaData),
-			Version:       doc.Version,
-			Content:       doc.Content,
-			Links:         links,
-			LatestVersion: latestVersion,
-		}
-		latestVersion = &v1.PublishedDocumentVersion{
-			Version:   doc.Version,
-			CreatedAt: timestamppb.New(doc.UpdatedAt),
-		}
+		publishedDocument = doc.IntoPublishedDocument()
 	} else {
-		// get the published document by version
+		// get the published publishedDocument by version
 		doc, err := p.store.GetPublishedDocumentByVersion(ctx, id, version)
 		if err != nil {
 			return nil, err
 		}
-		metaData, err := p.compress.Decode([]byte(doc.Meta))
-		if err != nil {
-			return nil, err
-		}
+		publishedDocument = doc
+	}
 
-		latestDoc, err := p.store.GetLatestPublishedDocumentMeta(ctx, id)
-		if err != nil {
-			return nil, err
-		}
-		latestVersion = &v1.PublishedDocumentVersion{
-			Version:   latestDoc.Version,
-			CreatedAt: timestamppb.New(latestDoc.UpdatedAt),
-		}
+	metaData, err := p.compress.Decode([]byte(publishedDocument.Meta))
+	if err != nil {
+		return nil, err
+	}
 
-		linkData, err := p.compress.Decode([]byte(doc.Links))
-		if err != nil {
-			return nil, err
-		}
-		links, err := parseLinks(string(linkData))
-		if err != nil {
-			return nil, err
-		}
+	latestDoc, err := p.store.GetLatestPublishedDocumentMeta(ctx, id)
+	if err != nil {
+		return nil, err
+	}
 
-		childrenData, err := p.compress.Decode([]byte(doc.Children))
-		if err != nil {
-			return nil, err
-		}
-		children, err := parseChildren(string(childrenData))
-		if err != nil {
-			return nil, err
-		}
+	linkData, err := p.compress.Decode([]byte(publishedDocument.Links))
+	if err != nil {
+		return nil, err
+	}
+	links, err := parseLinks(string(linkData))
+	if err != nil {
+		return nil, err
+	}
 
-		document = &v1.PublishedDocument{
-			Id:            doc.ID,
-			Meta:          string(metaData),
-			Version:       doc.Version,
-			Content:       doc.Content,
-			Links:         links,
-			Children:      children,
-			LatestVersion: latestVersion,
-		}
+	childrenData, err := p.compress.Decode([]byte(publishedDocument.Children))
+	if err != nil {
+		return nil, err
+	}
+	children, err := parseChildren(string(childrenData))
+	if err != nil {
+		return nil, err
+	}
+
+	latestVersion := &v1.PublishedDocumentVersion{
+		Version:   latestDoc.Version,
+		CreatedAt: timestamppb.New(latestDoc.UpdatedAt),
+	}
+	document := &v1.PublishedDocument{
+		Id:            publishedDocument.ID,
+		Meta:          string(metaData),
+		Version:       publishedDocument.Version,
+		Content:       publishedDocument.Content,
+		Links:         links,
+		Children:      children,
+		LatestVersion: latestVersion,
 	}
 
 	return &v1.GetPublishedDocumentResponse{
-		Document:      document,
-		LatestVersion: latestVersion,
+		Document: document,
 	}, nil
 }
 
