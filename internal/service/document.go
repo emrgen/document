@@ -692,7 +692,14 @@ func (d DocumentService) PublishDocuments(ctx context.Context, request *v1.Publi
 			}
 
 			// Check if the document is already published with the same content and metadata
-			if !request.GetForce() && lastPublishedDoc != nil && doc != nil && lastPublishedDoc.Meta == doc.Meta && lastPublishedDoc.Content == doc.Content && lastPublishedDoc.Links == doc.Links {
+			if !request.GetForce() &&
+				lastPublishedDoc != nil &&
+				doc != nil &&
+				lastPublishedDoc.Meta == doc.Meta &&
+				lastPublishedDoc.Content == doc.Content &&
+				lastPublishedDoc.Links == doc.Links &&
+				lastPublishedDoc.Children == doc.Children {
+				// return an error if the document is already published
 				return errors.New("document is already published with version: " + lastPublishedDoc.Version)
 			}
 

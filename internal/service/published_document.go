@@ -38,7 +38,7 @@ func (p *PublishedDocumentService) GetPublishedDocumentMeta(ctx context.Context,
 		return nil, err
 	}
 
-	meta, err := p.store.GetLatestPublishedDocumentMeta(ctx, docID)
+	meta, err := p.store.GetPublishedDocumentMetaByVersion(ctx, docID, request.GetVersion())
 	if err != nil {
 		return nil, err
 	}

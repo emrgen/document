@@ -1129,18 +1129,9 @@ func listPublishedChildrenCmd() *cobra.Command {
 			defer conn.Close()
 			client := v1.NewPublishedDocumentServiceClient(conn)
 
-			docVersion := "latest"
-			if version != "" {
-				if !checkValidSemvar(version) {
-					return
-				}
-				docVersion = version
-			}
-
-			ctx := tokenContext()
-			res, err := client.GetPublishedDocumentMeta(ctx, &v1.GetPublishedDocumentMetaRequest{
+			res, err := client.GetPublishedDocumentMeta(tokenContext(), &v1.GetPublishedDocumentMetaRequest{
 				DocumentId: docID,
-				Version:    docVersion,
+				Version:    version,
 			})
 			if err != nil {
 				logrus.Error(err)
@@ -1163,7 +1154,7 @@ func listPublishedChildrenCmd() *cobra.Command {
 	}
 
 	command.Flags().StringVarP(&docID, "doc-id", "d", "", "document id of the document")
-	command.Flags().StringVarP(&version, "version", "v", "", "version of the document")
+	command.Flags().StringVarP(&version, "version", "v", "latest", "version of the document")
 
 	return command
 }

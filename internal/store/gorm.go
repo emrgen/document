@@ -22,6 +22,15 @@ type GormStore struct {
 	db *gorm.DB
 }
 
+func (g *GormStore) GetPublishedDocumentMetaByVersion(ctx context.Context, id uuid.UUID, version string) (*model.PublishedDocumentMeta, error) {
+	var doc model.PublishedDocumentMeta
+	err := g.db.Where("id = ? AND version = ?", id.String(), version).First(&doc).Error
+	if err != nil {
+		return nil, err
+	}
+	return &doc, err
+}
+
 func (g *GormStore) ListDocumentBackupVersions(ctx context.Context, id uuid.UUID) ([]*model.DocumentBackup, error) {
 	var docs []*model.DocumentBackup
 	err := g.db.Where("id = ?", id).Order("created_at desc").Find(&docs).Error

@@ -73,6 +73,8 @@ type PublishedDocumentStore interface {
 	ListPublishedDocumentVersions(ctx context.Context, id uuid.UUID) ([]*model.PublishedDocumentMeta, error)
 	// GetLatestPublishedDocumentMeta retrieves the latest published document meta by ID.
 	GetLatestPublishedDocumentMeta(ctx context.Context, id uuid.UUID) (*model.LatestPublishedDocumentMeta, error)
+	// GetPublishedDocumentMetaByVersion retrieves a list of published links by source ID.
+	GetPublishedDocumentMetaByVersion(ctx context.Context, id uuid.UUID, version string) (*model.PublishedDocumentMeta, error)
 	// CreatePublishedLinks creates a new published document.
 	CreatePublishedLinks(ctx context.Context, links []*model.PublishedLink) error
 	// ListPublishedBacklinks retrieves a list of backlinks by source ID.
