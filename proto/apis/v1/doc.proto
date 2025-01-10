@@ -52,6 +52,7 @@ message CreateDocumentResponse {
 
 message GetDocumentRequest {
   string document_id = 2 [(validate.rules).string.uuid = true];
+  optional int64 version = 3;
 }
 
 message GetDocumentResponse {
@@ -68,6 +69,21 @@ message ListDocumentsRequest {
 message ListDocumentsResponse {
   repeated Document documents = 1;
   int32 total = 2;
+}
+
+message ListDocumentVersionsRequest {
+  string document_id = 1 [(validate.rules).string.uuid = true];
+}
+
+message DocumentVersion {
+  int64 version = 1;
+  google.protobuf.Timestamp created_at = 2;
+}
+
+message ListDocumentVersionsResponse {
+  repeated DocumentVersion versions = 1;
+  google.protobuf.Timestamp created_at = 2;
+  int64 latest_version = 3;
 }
 
 enum UpdateKind {
@@ -164,6 +180,17 @@ service DocumentService {
     };
   }
 
+  rpc ListDocumentVersions(ListDocumentVersionsRequest) returns (ListDocumentVersionsResponse) {
+    option (google.api.http) = {
+      get: "/v1/documents/{document_id}/versions"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "List document versions"
+      description: "List document versions"
+      operation_id: "ListDocumentVersions"
+    };
+  }
+
   rpc UpdateDocument(UpdateDocumentRequest) returns (UpdateDocumentResponse) {
     option (google.api.http) = {
       put: "/v1/documents/{id}"
@@ -254,14 +281,14 @@ message ListPublishedDocumentVersionsRequest {
   string id = 1 [(validate.rules).string.uuid = true];
 }
 
-message DocVersion {
+message PublishedDocumentVersion {
   string version = 1;
   google.protobuf.Timestamp created_at = 2;
 }
 
 message ListPublishedDocumentVersionsResponse {
   string id = 1 [(validate.rules).string.uuid = true];
-  repeated DocVersion versions = 2;
+  repeated PublishedDocumentVersion versions = 2;
   string latest_version = 3;
 }
 

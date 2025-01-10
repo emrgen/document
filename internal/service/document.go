@@ -19,7 +19,6 @@ import (
 	status "google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"strings"
-	"time"
 )
 
 var (
@@ -43,6 +42,41 @@ type DocumentService struct {
 	cache    *cache.Redis
 	store    store.Store
 	v1.UnimplementedDocumentServiceServer
+}
+
+func (d DocumentService) ListDocumentVersions(ctx context.Context, request *v1.ListDocumentVersionsRequest) (*v1.ListDocumentVersionsResponse, error) {
+	docID, err := uuid.Parse(request.GetDocumentId())
+	if err != nil {
+		return nil, err
+	}
+
+	backups, err := d.store.ListDocumentBackupVersions(ctx, docID)
+	if err != nil {
+		return nil, err
+	}
+
+	var versions []*v1.DocumentVersion
+	doc, err := d.store.GetDocument(ctx, docID)
+	if err != nil {
+		return nil, err
+	}
+	versions = append(versions, &v1.DocumentVersion{
+		Version:   doc.Version,
+		CreatedAt: timestamppb.New(doc.CreatedAt),
+	})
+
+	for _, backup := range backups {
+		versions = append(versions, &v1.DocumentVersion{
+			Version:   backup.Version,
+			CreatedAt: timestamppb.New(backup.CreatedAt),
+		})
+	}
+
+	return &v1.ListDocumentVersionsResponse{
+		Versions:      versions,
+		CreatedAt:     timestamppb.New(doc.CreatedAt),
+		LatestVersion: doc.Version,
+	}, nil
 }
 
 func (d DocumentService) ListBacklinks(ctx context.Context, request *v1.ListBacklinksRequest) (*v1.ListBacklinksResponse, error) {
@@ -625,7 +659,7 @@ func (d DocumentService) PublishDocument(ctx context.Context, request *v1.Publis
 				return err
 			}
 			*version = version.IncPatch()
- 
+
 			if request.GetVersion() != "" {
 				newVersion, err := semver.NewVersion(request.GetVersion())
 				if err != nil {
@@ -710,40 +744,4 @@ func (d DocumentService) PublishDocument(ctx context.Context, request *v1.Publis
 			Version: latestDoc.Version,
 		},
 	}, nil
-}
-
-// updateLatestPublishedDocumentCache updates the latest published document cache.
-// NOTE: without cache update the latest document will not be available immediately.
-func updateLatestPublishedDocumentCache(ctx context.Context, cache *cache.Redis, id string, doc *model.PublishedDocument) error {
-	links := make(map[string]string)
-	if doc.Links != "" {
-		err := json.Unmarshal([]byte(doc.Links), &links)
-		if err != nil {
-			return err
-		}
-	}
-
-	docProto := &v1.PublishedDocument{
-		Id:      doc.ID,
-		Version: doc.Version,
-		Meta:    doc.Meta,
-		Links:   links,
-		Content: doc.Content,
-	}
-	docData, err := json.Marshal(docProto)
-	if err != nil {
-		return err
-	}
-
-	err = cache.Set(ctx, fmt.Sprintf("%s@%s", id, "latest"), string(docData), time.Minute*5)
-	if err != nil {
-		return err
-	}
-
-	err = cache.Set(ctx, fmt.Sprintf("%s@%s", id, doc.Version), string(docData), time.Minute*5)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }

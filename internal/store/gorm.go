@@ -22,6 +22,12 @@ type GormStore struct {
 	db *gorm.DB
 }
 
+func (g *GormStore) ListDocumentBackupVersions(ctx context.Context, id uuid.UUID) ([]*model.DocumentBackup, error) {
+	var docs []*model.DocumentBackup
+	err := g.db.Where("id = ?", id).Order("created_at desc").Find(&docs).Error
+	return docs, err
+}
+
 func (g *GormStore) ExistsDocuments(ctx context.Context, docs []*model.Document) (bool, error) {
 	return false, nil
 }
@@ -88,6 +94,7 @@ func (g *GormStore) ListPublishedDocumentVersions(ctx context.Context, id uuid.U
 	return docs, err
 }
 
+// GetLatestPublishedDocumentMeta retrieves the latest published document meta
 func (g *GormStore) GetLatestPublishedDocumentMeta(ctx context.Context, id uuid.UUID) (*model.LatestPublishedDocumentMeta, error) {
 	var doc model.LatestPublishedDocumentMeta
 	err := g.db.Where("id = ?", id).First(&doc).Error
@@ -97,6 +104,7 @@ func (g *GormStore) GetLatestPublishedDocumentMeta(ctx context.Context, id uuid.
 	return &doc, err
 }
 
+// GetLatestPublishedDocument retrieves the latest published document
 func (g *GormStore) GetLatestPublishedDocument(ctx context.Context, id uuid.UUID) (*model.LatestPublishedDocument, error) {
 	var doc model.LatestPublishedDocument
 	err := g.db.Where("id = ?", id.String()).First(&doc).Error

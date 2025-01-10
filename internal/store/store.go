@@ -24,6 +24,7 @@ type DocumentStore interface {
 	GetDocument(ctx context.Context, id uuid.UUID) (*model.Document, error)
 	// ListDocuments retrieves a list of documents by project ID.
 	ListDocuments(ctx context.Context, projectID uuid.UUID) ([]*model.Document, int64, error)
+
 	// ListDocumentsFromIDs retrieves a list of documents by IDs.
 	ListDocumentsFromIDs(ctx context.Context, ids []uuid.UUID) ([]*model.Document, error)
 	// UpdateDocument updates a document.
@@ -47,6 +48,8 @@ type DocumentBackupStore interface {
 	CreateDocumentBackup(ctx context.Context, backup *model.DocumentBackup) error
 	// ListDocumentBackups retrieves a list of document backups by document ID.
 	ListDocumentBackups(ctx context.Context, docID uuid.UUID) ([]*model.DocumentBackup, error)
+	// ListDocumentBackupVersions retrieves a list of document versions by ID.
+	ListDocumentBackupVersions(ctx context.Context, id uuid.UUID) ([]*model.DocumentBackup, error)
 	// GetDocumentBackup retrieves a document backup by document ID and version.
 	GetDocumentBackup(ctx context.Context, docID uuid.UUID, version uint64) (*model.DocumentBackup, error)
 	// DeleteDocumentBackup deletes a document backup by document ID and version.

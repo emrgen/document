@@ -34,6 +34,7 @@ func init() {
 	rootCmd.AddCommand(publishedCmd)
 	publishedCmd.SetHelpCommand(&cobra.Command{Use: "no-help", Hidden: true})
 	publishedCmd.AddCommand(listPublishedDocsCmd())
+	publishedCmd.AddCommand(listPublishedVersionsCmd())
 }
 
 func createDocCmd() *cobra.Command {
@@ -167,9 +168,8 @@ func getDocCmd() *cobra.Command {
 				table.Append([]string{res.Document.Id, res.Document.Version, "true"})
 				table.Render()
 
-				cmd.Printf("Title: %s\n", getTitle(res.Document.Meta))
-				cmd.Printf("Meta: %s\n", res.Document.Content)
-				color.Cyan("Title")
+				printField("Title", getTitle(res.Document.Meta))
+				printField("Content", res.Document.Content)
 			}
 
 			if !latest && version == "" {
@@ -201,7 +201,7 @@ func getDocCmd() *cobra.Command {
 				table.Append([]string{res.Document.Id, strconv.FormatInt(res.Document.Version, 10)})
 				table.Render()
 				printField("Title", getTitle(res.Document.Meta))
-				printField("Meta", res.Document.Content)
+				printField("Content", res.Document.Content)
 			}
 		},
 	}
@@ -420,11 +420,11 @@ func listDocVersionsCmd() *cobra.Command {
 				return
 			}
 			defer conn.Close()
-			client := v1.NewPublishedDocumentServiceClient(conn)
+			client := v1.NewDocumentServiceClient(conn)
 
 			ctx := tokenContext()
-			res, err := client.ListPublishedDocumentVersions(ctx, &v1.ListPublishedDocumentVersionsRequest{
-				Id: docID,
+			res, err := client.ListDocumentVersions(ctx, &v1.ListDocumentVersionsRequest{
+				DocumentId: docID,
 			})
 			if err != nil {
 				logrus.Error(err)
@@ -434,10 +434,11 @@ func listDocVersionsCmd() *cobra.Command {
 			table := tablewriter.NewWriter(os.Stdout)
 			table.SetHeader([]string{"Version", "Created At"})
 			for _, v := range res.Versions {
+				version := strconv.FormatInt(v.Version, 10)
 				if v.Version == res.LatestVersion {
-					table.Append([]string{v.Version + " (latest)", v.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
+					table.Append([]string{version + " (latest)", v.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
 				} else {
-					table.Append([]string{v.Version, v.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
+					table.Append([]string{fmt.Sprintf("%-10s", version), v.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
 				}
 			}
 
@@ -784,6 +785,55 @@ func listPublishedDocsCmd() *cobra.Command {
 	}
 
 	command.Flags().StringVarP(&projectID, "project-id", "p", "", "project id (required)")
+
+	return command
+}
+
+func listPublishedVersionsCmd() *cobra.Command {
+	var docID string
+
+	var required = []string{"doc-id"}
+
+	command := &cobra.Command{
+		Use:   "versions",
+		Short: "list published document versions",
+		Run: func(cmd *cobra.Command, args []string) {
+			if !checkMissingFlags(cmd, required) {
+				return
+			}
+
+			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+			defer conn.Close()
+			client := v1.NewPublishedDocumentServiceClient(conn)
+
+			ctx := tokenContext()
+			res, err := client.ListPublishedDocumentVersions(ctx, &v1.ListPublishedDocumentVersionsRequest{
+				Id: docID,
+			})
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+
+			table := tablewriter.NewWriter(os.Stdout)
+			table.SetHeader([]string{"Version", "Created At"})
+			for _, v := range res.Versions {
+				if v.Version == res.LatestVersion {
+					table.Append([]string{v.Version + " (latest)", v.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
+				} else {
+					table.Append([]string{v.Version, v.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
+				}
+			}
+
+			table.Render()
+		},
+	}
+
+	command.Flags().StringVarP(&docID, "doc-id", "d", "", "document id to list versions")
 
 	return command
 }
