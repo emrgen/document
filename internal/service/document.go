@@ -44,6 +44,73 @@ type DocumentService struct {
 	v1.UnimplementedDocumentServiceServer
 }
 
+// CreateDocument creates a new document.
+func (d DocumentService) CreateDocument(ctx context.Context, request *v1.CreateDocumentRequest) (*v1.CreateDocumentResponse, error) {
+	var err error
+
+	metaData, err := d.compress.Encode([]byte(request.GetMeta()))
+	if err != nil {
+		return nil, err
+	}
+
+	contentData, err := d.compress.Encode([]byte(request.GetContent()))
+	if err != nil {
+		return nil, err
+	}
+
+	links := request.GetLinks()
+	if links == nil {
+		links = make(map[string]string)
+	}
+	linkData, err := json.Marshal(links)
+	if err != nil {
+		return nil, err
+	}
+	
+	children := request.GetChildren()
+	if children == nil {
+		children = make([]string, 0)
+	}
+	childrenData, err := json.Marshal(children)
+	if err != nil {
+		return nil, err
+	}
+	childrenEncode, err := d.compress.Encode(childrenData)
+	if err != nil {
+		return nil, err
+	}
+
+	projectID := request.GetProjectId()
+	doc := &model.Document{
+		ProjectID: projectID,
+		Meta:      string(metaData),
+		Content:   string(contentData),
+		Links:     string(linkData),
+		Children:  string(childrenEncode),
+		Version:   0,
+	}
+
+	if request.DocumentId != nil {
+		doc.ID = request.GetDocumentId()
+	} else {
+		doc.ID = uuid.New().String()
+	}
+
+	err = d.store.CreateDocument(ctx, doc)
+	if err != nil {
+		return nil, err
+	}
+
+	return &v1.CreateDocumentResponse{
+		Document: &v1.Document{
+			Id:        doc.ID,
+			Meta:      request.GetMeta(),
+			CreatedAt: timestamppb.New(doc.CreatedAt),
+			UpdatedAt: timestamppb.New(doc.UpdatedAt),
+		},
+	}, nil
+}
+
 func (d DocumentService) ListDocumentVersions(ctx context.Context, request *v1.ListDocumentVersionsRequest) (*v1.ListDocumentVersionsResponse, error) {
 	docID, err := uuid.Parse(request.GetDocumentId())
 	if err != nil {
@@ -100,65 +167,6 @@ func (d DocumentService) ListBacklinks(ctx context.Context, request *v1.ListBack
 
 	return &v1.ListBacklinksResponse{
 		Links: backlinksProto,
-	}, nil
-}
-
-// CreateDocument creates a new document.
-func (d DocumentService) CreateDocument(ctx context.Context, request *v1.CreateDocumentRequest) (*v1.CreateDocumentResponse, error) {
-	var err error
-
-	metaData, err := d.compress.Encode([]byte(request.GetMeta()))
-	if err != nil {
-		return nil, err
-	}
-
-	contentData, err := d.compress.Encode([]byte(request.GetContent()))
-	if err != nil {
-		return nil, err
-	}
-
-	linkData, err := json.Marshal(request.GetLinks())
-	if err != nil {
-		return nil, err
-	}
-
-	children, err := json.Marshal(request.GetLinks())
-	if err != nil {
-		return nil, err
-	}
-	childrenData, err := d.compress.Encode(children)
-	if err != nil {
-		return nil, err
-	}
-
-	projectID := request.GetProjectId()
-	doc := &model.Document{
-		ProjectID: projectID,
-		Meta:      string(metaData),
-		Content:   string(contentData),
-		Links:     string(linkData),
-		Children:  string(childrenData),
-		Version:   0,
-	}
-
-	if request.DocumentId != nil {
-		doc.ID = request.GetDocumentId()
-	} else {
-		doc.ID = uuid.New().String()
-	}
-
-	err = d.store.CreateDocument(ctx, doc)
-	if err != nil {
-		return nil, err
-	}
-
-	return &v1.CreateDocumentResponse{
-		Document: &v1.Document{
-			Id:        doc.ID,
-			Meta:      request.GetMeta(),
-			CreatedAt: timestamppb.New(doc.CreatedAt),
-			UpdatedAt: timestamppb.New(doc.UpdatedAt),
-		},
 	}, nil
 }
 

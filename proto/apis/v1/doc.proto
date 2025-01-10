@@ -33,6 +33,7 @@ message Document {
   DocumentKind kind = 7; // default: treated as text
   google.protobuf.Timestamp created_at = 20;
   google.protobuf.Timestamp updated_at = 21;
+  string project_id = 22 [(validate.rules).string.uuid = true];
 }
 
 extend google.protobuf.MessageOptions {
@@ -247,6 +248,7 @@ message PublishedDocument {
   map<string, string> links = 5;
   repeated string children = 6;
   PublishedDocumentVersion latest_version = 7;
+  string project_id = 22 [(validate.rules).string.uuid = true];
 }
 
 message GetPublishedDocumentRequest {

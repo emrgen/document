@@ -113,14 +113,3 @@ func SetupDocker() (func(), error) {
 
 	return purge, nil
 }
-
-func Cleanup() error {
-	db, err := gorm.Open(postgres.Open("postgres://emrgen:emrgen@localhost:5432/emrgen?sslmode=disable"), &gorm.Config{})
-	if err != nil {
-		return err
-	}
-
-	db.Exec("DELETE * FROM users")
-
-	return nil
-}

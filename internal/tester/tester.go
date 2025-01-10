@@ -1,6 +1,7 @@
 package tester
 
 import (
+	"github.com/emrgen/document/internal/cache"
 	"os"
 
 	"github.com/emrgen/document/internal/model"
@@ -48,25 +49,11 @@ func RemoveDBFile() {
 	}
 }
 
-func CleanUp() {
-	DropDocuments()
-	DropGroups()
-	DropProjects()
-	DropUsers()
-}
+func Redis() *cache.Redis {
+	r, err := cache.NewRedis()
+	if err != nil {
+		panic(err)
+	}
 
-func DropDocuments() {
-	db.Exec("DELETE FROM documents")
-}
-
-func DropUsers() {
-	db.Exec("DELETE FROM users")
-}
-
-func DropProjects() {
-	db.Exec("DELETE FROM projects")
-}
-
-func DropGroups() {
-	db.Exec("DELETE FROM groups")
+	return r
 }
