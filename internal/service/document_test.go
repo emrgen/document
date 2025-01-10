@@ -105,35 +105,70 @@ func TestDocumentService_UpdateDocument(t *testing.T) {
 	}
 
 	projectID := uuid.New().String()
-	docID := uuid.New().String()
+	doc1ID := uuid.New().String()
+	doc2ID := uuid.New().String()
 
 	tests := []struct {
-		Input  Document
-		Update Document
-		Output Document
+		Input   Document
+		Updates []Document
+		Output  Document
 	}{
 		{
 			Input: Document{
 				name:      "Test Document",
 				projectID: projectID,
-				docID:     docID,
+				docID:     doc1ID,
 			},
-			Update: Document{
+			Updates: []Document{{
 				name:      "Test UpdatedDocument",
 				projectID: projectID,
-				docID:     docID,
+				docID:     doc1ID,
+				Meta:      "{}",
+				Content:   "content",
+				Links:     map[string]string{"link@latest": "link"},
+				Version:   1,
+			}},
+			Output: Document{
+				name:      "Test UpdatedDocument",
+				projectID: projectID,
+				docID:     doc1ID,
 				Meta:      "{}",
 				Content:   "content",
 				Links:     map[string]string{"link@latest": "link"},
 				Version:   1,
 			},
-			Output: Document{
-				name:      "Test UpdatedDocument",
+		},
+		{
+			Input: Document{
+				name:      "Test Document",
 				projectID: projectID,
-				docID:     docID,
+				docID:     doc2ID,
+			},
+			Updates: []Document{{
+				name:      "Test UpdatedDocument 1",
+				projectID: projectID,
+				docID:     doc2ID,
 				Meta:      "{}",
 				Content:   "content",
 				Links:     map[string]string{"link@latest": "link"},
+				Version:   1,
+			}, {
+				name:      "Test UpdatedDocument 2",
+				projectID: projectID,
+				docID:     doc2ID,
+				Meta:      "{test}",
+				Content:   "content",
+				Links:     map[string]string{"link@latest": "link", "link2@latest": "link2"},
+				Version:   2,
+			}},
+			Output: Document{
+				name:      "Test UpdatedDocument 2",
+				projectID: projectID,
+				docID:     doc2ID,
+				Meta:      "{test}",
+				Content:   "content",
+				Links:     map[string]string{"link@latest": "link", "link2@latest": "link2"},
+				Version:   2,
 			},
 		},
 	}
@@ -150,19 +185,21 @@ func TestDocumentService_UpdateDocument(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		// update document
-		res, err := client.UpdateDocument(context.TODO(), &v1.UpdateDocumentRequest{
-			DocumentId: tt.Update.docID,
-			Meta:       &tt.Update.Meta,
-			Content:    &tt.Update.Content,
-			Links:      tt.Update.Links,
-			Children:   tt.Update.Children,
-			Version:    tt.Update.Version,
-		})
+		// apply updates
+		for _, update := range tt.Updates {
+			res, err := client.UpdateDocument(context.TODO(), &v1.UpdateDocumentRequest{
+				DocumentId: update.docID,
+				Meta:       &update.Meta,
+				Content:    &update.Content,
+				Links:      update.Links,
+				Children:   update.Children,
+				Version:    update.Version,
+			})
 
-		assert.NoError(t, err)
-		assert.NotNil(t, res)
-		assert.Equal(t, tt.Output.docID, res.Id)
+			assert.NoError(t, err)
+			assert.NotNil(t, res)
+			assert.Equal(t, tt.Output.docID, res.Id)
+		}
 
 		// get document
 		got, err := client.GetDocument(context.TODO(), &v1.GetDocumentRequest{
@@ -172,6 +209,7 @@ func TestDocumentService_UpdateDocument(t *testing.T) {
 
 		assert.Equal(t, tt.Output.docID, got.Document.Id)
 		assert.Equal(t, tt.Output.Content, got.Document.Content)
+		assert.Equal(t, tt.Output.Version, got.Document.Version)
 
 		if tt.Output.Meta != "" {
 			assert.Equal(t, tt.Output.Meta, got.Document.Meta)
