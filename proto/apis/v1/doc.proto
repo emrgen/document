@@ -95,7 +95,7 @@ enum UpdateKind {
 }
 
 message UpdateDocumentRequest {
-  string id = 1 [(validate.rules).string.uuid = true];
+  string document_id = 1 [(validate.rules).string.uuid = true];
   optional string meta = 2;
   optional string content = 3;
   map<string, string> links = 4;
@@ -190,7 +190,7 @@ service DocumentService {
 
   rpc UpdateDocument(UpdateDocumentRequest) returns (UpdateDocumentResponse) {
     option (google.api.http) = {
-      put: "/v1/documents/{id}"
+      put: "/v1/documents/{document_id}"
       body: "*"
     };
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {

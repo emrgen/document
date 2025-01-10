@@ -66,7 +66,7 @@ func (d DocumentService) CreateDocument(ctx context.Context, request *v1.CreateD
 	if err != nil {
 		return nil, err
 	}
-	
+
 	children := request.GetChildren()
 	if children == nil {
 		children = make([]string, 0)
@@ -324,7 +324,7 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 
 	err = d.store.Transaction(ctx, func(tx store.Store) error {
 		// Get document from database
-		doc, err = tx.GetDocument(ctx, uuid.MustParse(request.GetId()))
+		doc, err = tx.GetDocument(ctx, uuid.MustParse(request.GetDocumentId()))
 		clone := &model.Document{
 			ID:      doc.ID,
 			Version: doc.Version,
@@ -511,7 +511,7 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 				for key := range oldLinks {
 					tokens := strings.Split(key, "@")
 					if len(tokens) != 2 {
-						return errors.New("invalid link format")
+						return ErrInvalidLinkFormat
 					}
 
 					if _, ok := newLinks[key]; !ok {
@@ -526,7 +526,7 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 				for key := range newLinks {
 					tokens := strings.Split(key, "@")
 					if len(tokens) != 2 {
-						return errors.New("invalid link format")
+						return ErrInvalidLinkFormat
 					}
 
 					targetID := tokens[0]
@@ -622,7 +622,7 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 	}
 
 	return &v1.UpdateDocumentResponse{
-		Id:      request.Id,
+		Id:      request.DocumentId,
 		Version: uint32(doc.Version),
 	}, nil
 }
@@ -800,7 +800,7 @@ func (d DocumentService) PublishDocuments(ctx context.Context, request *v1.Publi
 			for target := range links {
 				tokens := strings.Split(target, "@")
 				if len(tokens) != 2 {
-					return errors.New("invalid link format")
+					return ErrInvalidLinkFormat
 				}
 
 				targetID := tokens[0]

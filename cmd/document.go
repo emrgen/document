@@ -287,9 +287,9 @@ Constraint:
 			client := v1.NewDocumentServiceClient(conn)
 
 			req := &v1.UpdateDocumentRequest{
-				Id:      docID,
-				Version: version,
-				Kind:    v1.UpdateKind_TEXT,
+				DocumentId: docID,
+				Version:    version,
+				Kind:       v1.UpdateKind_TEXT,
 			}
 
 			// update content if provided
@@ -489,9 +489,9 @@ func addLinkCmd() *cobra.Command {
 			res.Document.Links[fmt.Sprintf("%s@%s", targetID, targetVersion)] = ""
 
 			_, err = client.UpdateDocument(tokenContext(), &v1.UpdateDocumentRequest{
-				Id:      sourceID,
-				Links:   res.Document.Links,
-				Version: res.Document.Version + 1,
+				DocumentId: sourceID,
+				Links:      res.Document.Links,
+				Version:    res.Document.Version + 1,
 			})
 			if err != nil {
 				logrus.Error(err)
@@ -632,9 +632,9 @@ func removeLinkCmd() *cobra.Command {
 			delete(res.Document.Links, fmt.Sprintf("%s@%s", targetID, targetVersion))
 
 			_, err = client.UpdateDocument(tokenContext(), &v1.UpdateDocumentRequest{
-				Id:      sourceID,
-				Links:   res.Document.Links,
-				Version: res.Document.Version + 1,
+				DocumentId: sourceID,
+				Links:      res.Document.Links,
+				Version:    res.Document.Version + 1,
 			})
 			if err != nil {
 				logrus.Error(err)
@@ -702,9 +702,9 @@ func addChildCmd() *cobra.Command {
 			res.Document.Children = unique(res.Document.Children)
 
 			_, err = client.UpdateDocument(tokenContext(), &v1.UpdateDocumentRequest{
-				Id:       parentID,
-				Children: res.Document.Children,
-				Version:  res.Document.Version + 1,
+				DocumentId: parentID,
+				Children:   res.Document.Children,
+				Version:    res.Document.Version + 1,
 			})
 			if err != nil {
 				logrus.Error(err)
@@ -822,9 +822,9 @@ func removeChildCmd() *cobra.Command {
 			}
 
 			_, err = client.UpdateDocument(tokenContext(), &v1.UpdateDocumentRequest{
-				Id:       parentID,
-				Children: res.Document.Children,
-				Version:  res.Document.Version + 1,
+				DocumentId: parentID,
+				Children:   res.Document.Children,
+				Version:    res.Document.Version + 1,
 			})
 			if err != nil {
 				logrus.Error(err)
