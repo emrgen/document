@@ -177,14 +177,11 @@ func (d DocumentService) GetDocument(ctx context.Context, request *v1.GetDocumen
 	// if err == nil {
 	// 	return doc, nil
 	// }
-	logrus.Infof("getting document id: %v", request.GetDocumentId())
 	// Get document from database
 	doc, err := d.store.GetDocument(ctx, uuid.MustParse(request.GetDocumentId()))
 	if err != nil {
 		return nil, err
 	}
-
-	logrus.Infof("document found id: %v, version: %v", doc.ID, doc.Version)
 
 	metaData, err := d.compress.Decode([]byte(doc.Meta))
 	if err != nil {

@@ -157,9 +157,12 @@ func getDocCmd() *cobra.Command {
 				}
 
 				table := tablewriter.NewWriter(os.Stdout)
-				table.SetHeader([]string{"ID", "Version"})
-				table.Append([]string{res.Document.Id, strconv.FormatInt(res.Document.Version, 10)})
+				table.SetHeader([]string{"ID", "Version", "Links", "Children"})
+				table.Append([]string{res.Document.Id, strconv.FormatInt(res.Document.Version, 10), strconv.Itoa(len(res.Document.Links)), strconv.Itoa(len(res.Document.Children))})
 				table.Render()
+
+				printField("Title", getTitle(res.Document.Meta))
+				printField("Content", res.Document.Content)
 
 				return
 			}
@@ -426,11 +429,7 @@ func listDocVersionsCmd() *cobra.Command {
 			table.SetHeader([]string{"Version", "Created At"})
 			for _, v := range res.Versions {
 				version := strconv.FormatInt(v.Version, 10)
-				if v.Version == res.LatestVersion {
-					table.Append([]string{version + " (current)", v.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
-				} else {
-					table.Append([]string{fmt.Sprintf("%-11s", version), v.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
-				}
+				table.Append([]string{version, v.CreatedAt.AsTime().Format("2006-01-02 15:04:05")})
 			}
 
 			table.Render()

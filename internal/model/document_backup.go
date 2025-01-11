@@ -14,6 +14,7 @@ type DocumentBackup struct {
 	Meta        string
 	Links       string
 	Content     string
+	Children    string
 	Kind        string
 	UpdatedBy   string `gorm:"uuid;not null"`
 	Compression string

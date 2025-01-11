@@ -7,6 +7,7 @@ import (
 	"github.com/emrgen/document/internal/compress"
 	"github.com/emrgen/document/internal/store"
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -88,6 +89,10 @@ func (d *DocumentBackupService) GetDocumentBackup(ctx context.Context, request *
 		return nil, err
 	}
 
+	childrenData, err := parseChildren(backup.Children)
+
+	logrus.Infof("backup: %v", backup.Content)
+	
 	return &v1.GetDocumentBackupResponse{
 		Document: &v1.Document{
 			Id:        backup.ID,
@@ -95,6 +100,7 @@ func (d *DocumentBackupService) GetDocumentBackup(ctx context.Context, request *
 			Version:   backup.Version,
 			Meta:      string(meta),
 			Links:     linkMap,
+			Children:  childrenData,
 			CreatedAt: timestamppb.New(backup.CreatedAt),
 		},
 	}, nil
