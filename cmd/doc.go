@@ -11,8 +11,6 @@ import (
 	"github.com/olekukonko/tablewriter"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"os"
 	"strconv"
 	"strings"
@@ -65,13 +63,12 @@ func createDocCmd() *cobra.Command {
 				return
 			}
 
-			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			client, err := document.NewClient("4020")
 			if err != nil {
 				logrus.Error(err)
 				return
 			}
-			defer conn.Close()
-			client := v1.NewDocumentServiceClient(conn)
+			defer client.Close()
 
 			req := &v1.CreateDocumentRequest{
 				ProjectId: projectID,
@@ -135,16 +132,15 @@ func getDocCmd() *cobra.Command {
 				return
 			}
 
-			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			client, err := document.NewClient("4020")
 			if err != nil {
 				logrus.Error(err)
 				return
 			}
-			defer conn.Close()
+			defer client.Close()
 
 			// return from backup if version is provided
 			if version != -1 {
-				client := v1.NewDocumentBackupServiceClient(conn)
 				req := &v1.GetDocumentBackupRequest{
 					DocumentId: docID,
 					Version:    version,
@@ -166,8 +162,6 @@ func getDocCmd() *cobra.Command {
 
 				return
 			}
-
-			client := v1.NewDocumentServiceClient(conn)
 
 			req := &v1.GetDocumentRequest{
 				DocumentId: docID,
@@ -221,13 +215,12 @@ func listDocCmd() *cobra.Command {
 				return
 			}
 
-			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			client, err := document.NewClient("4020")
 			if err != nil {
 				logrus.Error(err)
 				return
 			}
-			defer conn.Close()
-			client := v1.NewDocumentServiceClient(conn)
+			defer client.Close()
 
 			ctx := tokenContext()
 			res, err := client.ListDocuments(ctx, &v1.ListDocumentsRequest{
@@ -281,13 +274,12 @@ Constraint:
 				color.Magenta("overwriting document: %s\n", docID)
 			}
 
-			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			client, err := document.NewClient("4020")
 			if err != nil {
 				logrus.Error(err)
 				return
 			}
-			defer conn.Close()
-			client := v1.NewDocumentServiceClient(conn)
+			defer client.Close()
 
 			req := &v1.UpdateDocumentRequest{
 				DocumentId: docID,
@@ -352,13 +344,12 @@ func publishDocCmd() *cobra.Command {
 				return
 			}
 
-			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			client, err := document.NewClient("4020")
 			if err != nil {
 				logrus.Error(err)
 				return
 			}
-			defer conn.Close()
-			client := v1.NewDocumentServiceClient(conn)
+			defer client.Close()
 
 			req := &v1.PublishDocumentsRequest{
 				DocumentIds: []string{docID},
@@ -408,13 +399,12 @@ func listDocVersionsCmd() *cobra.Command {
 				return
 			}
 
-			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			client, err := document.NewClient("4020")
 			if err != nil {
 				logrus.Error(err)
 				return
 			}
-			defer conn.Close()
-			client := v1.NewDocumentServiceClient(conn)
+			defer client.Close()
 
 			ctx := tokenContext()
 			res, err := client.ListDocumentVersions(ctx, &v1.ListDocumentVersionsRequest{
@@ -541,8 +531,6 @@ func listLinksCmd() *cobra.Command {
 					return
 				}
 
-				logrus.Infof("links: %v", res.Document.Links)
-
 				if res.Document.Links == nil || len(res.Document.Links) == 0 {
 					logrus.Infof("no links found")
 				}
@@ -609,13 +597,13 @@ func removeLinkCmd() *cobra.Command {
 			if checkMissingFlags(cmd, required) {
 				return
 			}
-			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+
+			client, err := document.NewClient("4020")
 			if err != nil {
 				logrus.Error(err)
 				return
 			}
-			defer conn.Close()
-			client := v1.NewDocumentServiceClient(conn)
+			defer client.Close()
 
 			res, err := client.GetDocument(tokenContext(), &v1.GetDocumentRequest{
 				DocumentId: sourceID,
@@ -675,13 +663,12 @@ func addChildCmd() *cobra.Command {
 				return
 			}
 
-			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			client, err := document.NewClient("4020")
 			if err != nil {
 				logrus.Error(err)
 				return
 			}
-			defer conn.Close()
-			client := v1.NewDocumentServiceClient(conn)
+			defer client.Close()
 
 			res, err := client.GetDocument(tokenContext(), &v1.GetDocumentRequest{
 				DocumentId: parentID,
@@ -735,16 +722,14 @@ func listChildCmd() *cobra.Command {
 				return
 			}
 
-			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			client, err := document.NewClient("4020")
 			if err != nil {
 				logrus.Error(err)
 				return
 			}
-			defer conn.Close()
-			client := v1.NewDocumentServiceClient(conn)
+			defer client.Close()
 
-			ctx := tokenContext()
-			res, err := client.GetDocument(ctx, &v1.GetDocumentRequest{
+			res, err := client.GetDocument(tokenContext(), &v1.GetDocumentRequest{
 				DocumentId: docID,
 			})
 			if err != nil {
@@ -791,13 +776,12 @@ func removeChildCmd() *cobra.Command {
 				return
 			}
 
-			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			client, err := document.NewClient("4020")
 			if err != nil {
 				logrus.Error(err)
 				return
 			}
-			defer conn.Close()
-			client := v1.NewDocumentServiceClient(conn)
+			defer client.Close()
 
 			res, err := client.GetDocument(tokenContext(), &v1.GetDocumentRequest{
 				DocumentId: parentID,
@@ -873,13 +857,13 @@ func getPublishedDocCmd() *cobra.Command {
 				}
 			}
 
-			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			client, err := document.NewClient("4020")
 			if err != nil {
 				logrus.Error(err)
 				return
 			}
-			defer conn.Close()
-			client := v1.NewPublishedDocumentServiceClient(conn)
+			defer client.Close()
+
 			if err != nil {
 				logrus.Error(err)
 				return
@@ -931,16 +915,14 @@ func listPublishedDocsCmd() *cobra.Command {
 				return
 			}
 
-			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			client, err := document.NewClient("4020")
 			if err != nil {
 				logrus.Error(err)
 				return
 			}
-			defer conn.Close()
-			client := v1.NewPublishedDocumentServiceClient(conn)
+			defer client.Close()
 
-			ctx := tokenContext()
-			res, err := client.ListPublishedDocuments(ctx, &v1.ListPublishedDocumentsRequest{
+			res, err := client.ListPublishedDocuments(tokenContext(), &v1.ListPublishedDocumentsRequest{
 				ProjectId: projectID,
 			})
 			if err != nil {
@@ -976,16 +958,14 @@ func listPublishedVersionsCmd() *cobra.Command {
 				return
 			}
 
-			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			client, err := document.NewClient("4020")
 			if err != nil {
 				logrus.Error(err)
 				return
 			}
-			defer conn.Close()
-			client := v1.NewPublishedDocumentServiceClient(conn)
+			defer client.Close()
 
-			ctx := tokenContext()
-			res, err := client.ListPublishedDocumentVersions(ctx, &v1.ListPublishedDocumentVersionsRequest{
+			res, err := client.ListPublishedDocumentVersions(tokenContext(), &v1.ListPublishedDocumentVersionsRequest{
 				Id: docID,
 			})
 			if err != nil {
@@ -1021,20 +1001,19 @@ func listPublishedLinksCommand() *cobra.Command {
 		Use:   "links",
 		Short: "list published links",
 		Run: func(cmd *cobra.Command, args []string) {
+			client, err := document.NewClient("4020")
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+			defer client.Close()
+
+			docVersion := "latest"
+			if version != "" {
+				docVersion = version
+			}
+
 			if !backlink {
-				conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
-				if err != nil {
-					logrus.Error(err)
-					return
-				}
-				defer conn.Close()
-				client := v1.NewPublishedDocumentServiceClient(conn)
-
-				docVersion := "latest"
-				if version != "" {
-					docVersion = version
-				}
-
 				res, err := client.GetPublishedDocument(tokenContext(), &v1.GetPublishedDocumentRequest{
 					Id:      docID,
 					Version: docVersion,
@@ -1063,21 +1042,7 @@ func listPublishedLinksCommand() *cobra.Command {
 			}
 
 			if backlink {
-				conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
-				if err != nil {
-					logrus.Error(err)
-					return
-				}
-				defer conn.Close()
-				client := v1.NewPublishedDocumentServiceClient(conn)
-
-				docVersion := "latest"
-				if version != "" {
-					docVersion = version
-				}
-
-				ctx := tokenContext()
-				res, err := client.ListPublishedBacklinks(ctx, &v1.ListPublishedBacklinksRequest{
+				res, err := client.ListPublishedBacklinks(tokenContext(), &v1.ListPublishedBacklinksRequest{
 					DocumentId: docID,
 					Version:    docVersion,
 				})
@@ -1120,13 +1085,12 @@ func listPublishedChildrenCmd() *cobra.Command {
 				return
 			}
 
-			conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			client, err := document.NewClient("4020")
 			if err != nil {
 				logrus.Error(err)
 				return
 			}
-			defer conn.Close()
-			client := v1.NewPublishedDocumentServiceClient(conn)
+			defer client.Close()
 
 			res, err := client.GetPublishedDocumentMeta(tokenContext(), &v1.GetPublishedDocumentMetaRequest{
 				DocumentId: docID,
