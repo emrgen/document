@@ -2,9 +2,27 @@ package store
 
 import (
 	"context"
+	"errors"
 	"github.com/google/uuid"
 
 	"github.com/emrgen/document/internal/model"
+)
+
+var (
+	// ErrDocumentNotFound is returned when a document is not found.
+	ErrDocumentNotFound = errors.New("document not found")
+	// ErrDocumentBackupNotFound is returned when a document backup is not found.
+	ErrDocumentBackupNotFound = errors.New("document backup not found")
+	// ErrPublishedDocumentNotFound is returned when a published document is not found.
+	ErrPublishedDocumentNotFound = errors.New("published document not found")
+	// ErrPublishedDocumentVersionNotFound is returned when a published document version is not found.
+	ErrPublishedDocumentVersionNotFound = errors.New("published document version not found")
+	// ErrPublishedDocumentMetaNotFound is returned when a published document meta is not found.
+	ErrPublishedDocumentMetaNotFound = errors.New("published document meta not found")
+	// ErrPublishedDocumentVersionExists is returned when a published document version already exists.
+	ErrPublishedDocumentVersionExists = errors.New("published document version already exists")
+	// ErrPublishedDocumentMetaExists is returned when a published document meta already exists.
+	ErrPublishedDocumentMetaExists = errors.New("published document meta already exists")
 )
 
 type Store interface {

@@ -102,7 +102,9 @@ func Start(grpcPort, httpPort string) error {
 		runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.HTTPBodyMarshaler{
 			Marshaler: &runtime.JSONPb{
 				MarshalOptions: protojson.MarshalOptions{
-					EmitUnpopulated: true,
+					EmitUnpopulated: false,
+					Indent:          "  ",
+					UseProtoNames:   true,
 				},
 				UnmarshalOptions: protojson.UnmarshalOptions{
 					DiscardUnknown: true,

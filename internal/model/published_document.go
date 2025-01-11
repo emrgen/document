@@ -61,3 +61,14 @@ type LatestPublishedDocumentMeta struct {
 	Links     string
 	Children  string `gorm:"not null;default:[]"`
 }
+
+func (l *LatestPublishedDocumentMeta) IntoPublishedDocumentMeta() *PublishedDocumentMeta {
+	return &PublishedDocumentMeta{
+		ID:        l.ID,
+		ProjectID: l.ProjectID,
+		Version:   l.Version,
+		Meta:      l.Meta,
+		Links:     l.Links,
+		Children:  l.Children,
+	}
+}

@@ -38,9 +38,32 @@ func (p *PublishedDocumentService) GetPublishedDocumentMeta(ctx context.Context,
 		return nil, err
 	}
 
-	meta, err := p.store.GetPublishedDocumentMetaByVersion(ctx, docID, request.GetVersion())
+	version := request.GetVersion()
+	// get the latest published document meta
+
+	var latestPubMeta *model.PublishedDocumentMeta
+
+	latestMeta, err := p.store.GetLatestPublishedDocumentMeta(ctx, docID)
 	if err != nil {
 		return nil, err
+	}
+	if latestMeta != nil {
+		latestPubMeta = latestMeta.IntoPublishedDocumentMeta()
+	}
+
+	var meta *model.PublishedDocumentMeta
+
+	if version == "latest" || version == "" {
+		meta = latestPubMeta
+	} else {
+		meta, err = p.store.GetPublishedDocumentMetaByVersion(ctx, docID, version)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if meta == nil {
+		return nil, fmt.Errorf("document not found")
 	}
 
 	var children []string
@@ -59,12 +82,21 @@ func (p *PublishedDocumentService) GetPublishedDocumentMeta(ctx context.Context,
 		}
 	}
 
+	var latestVersion *v1.PublishedDocumentVersion
+	if latestPubMeta != nil {
+		latestVersion = &v1.PublishedDocumentVersion{
+			Version:   latestPubMeta.Version,
+			CreatedAt: timestamppb.New(latestPubMeta.CreatedAt),
+		}
+	}
+
 	return &v1.GetPublishedDocumentMetaResponse{
 		Document: &v1.PublishedDocument{
-			Id:       meta.ID,
-			Meta:     meta.Meta,
-			Links:    links,
-			Children: children,
+			Id:            meta.ID,
+			Meta:          meta.Meta,
+			Links:         links,
+			Children:      children,
+			LatestVersion: latestVersion,
 		},
 	}, nil
 }
@@ -245,6 +277,8 @@ func (p *PublishedDocumentService) ListPublishedDocumentVersions(ctx context.Con
 		Versions: versions,
 	}
 
+	// get the latest version if there are versions available
+	// this is useful for clients that want to get the latest version along with the versions list
 	if len(versions) > 0 {
 		latestMeta, err := p.store.GetLatestPublishedDocumentMeta(ctx, docID)
 		if err != nil {
