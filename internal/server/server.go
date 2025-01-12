@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"errors"
-	"fmt"
 	gatewayfile "github.com/black-06/grpc-gateway-file"
 	v1 "github.com/emrgen/document/apis/v1"
 	"github.com/emrgen/document/internal/cache"
@@ -104,7 +103,7 @@ func Start(grpcPort, httpPort string) error {
 				MarshalOptions: protojson.MarshalOptions{
 					EmitUnpopulated: false,
 					Indent:          "  ",
-					UseProtoNames:   true,
+					UseProtoNames:   true, // camelCase to snake_case
 				},
 				UnmarshalOptions: protojson.UnmarshalOptions{
 					DiscardUnknown: true,
@@ -156,16 +155,16 @@ func Start(grpcPort, httpPort string) error {
 	apiMux.Handle(docsPath, http.StripPrefix(docsPath, http.FileServer(openapiDocs)))
 	apiMux.Handle("/", mux)
 
-	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"*"}, // All origins are allowed
-		AllowedMethods:   []string{"GET", "POST", "DELETE", "PUT"},
-		AllowedHeaders:   []string{"Authorization"},
-		AllowCredentials: true,
-	})
+	//c := cors.New(cors.Options{
+	//	AllowedOrigins:   []string{"*"}, // All origins are allowed
+	//	AllowedMethods:   []string{"GET", "POST", "DELETE", "PUT"},
+	//	AllowedHeaders:   []string{"Authorization"},
+	//	AllowCredentials: true,
+	//})
 
 	restServer := &http.Server{
 		Addr:    httpPort,
-		Handler: c.Handler(apiMux),
+		Handler: cors.AllowAll().Handler(apiMux),
 	}
 
 	// make sure to wait for the servers to stop before exiting
@@ -204,7 +203,7 @@ func Start(grpcPort, httpPort string) error {
 	signal.Notify(sigs, unix.SIGTERM, unix.SIGINT, unix.SIGTSTP)
 	<-sigs
 	// clean Ctrl+C output
-	fmt.Println()
+	logrus.Println()
 
 	grpcServer.Stop()
 	err = restServer.Shutdown(context.Background())

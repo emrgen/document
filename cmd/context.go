@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"github.com/fatih/color"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc/metadata"
@@ -53,9 +53,9 @@ func setContextCommand() *cobra.Command {
 			})
 
 			if err := viper.WriteConfig(); err != nil {
-				fmt.Println("error writing config file: ", err)
+				logrus.Println("error writing config file: ", err)
 			} else {
-				fmt.Println("context saved")
+				logrus.Println("context saved")
 			}
 		},
 	}
@@ -97,7 +97,7 @@ func writeContext(context Context) {
 	viper.Set("context", context)
 
 	if err := viper.WriteConfig(); err != nil {
-		fmt.Println("error writing config file: ", err)
+		logrus.Println("error writing config file: ", err)
 	}
 }
 
@@ -122,7 +122,7 @@ func readContext() Context {
 	if _, err := os.Stat("./.tmp/" + configFileName + ".yml"); os.IsNotExist(err) {
 		file, err := os.Create("./.tmp/" + configFileName + ".yml")
 		if err != nil {
-			fmt.Println("error creating config file: ", err)
+			logrus.Println("error creating config file: ", err)
 		}
 		err = file.Close()
 		if err != nil {
@@ -135,11 +135,11 @@ func readContext() Context {
 	viper.SetConfigType("yml")
 
 	if err := viper.ReadInConfig(); err != nil {
-		fmt.Println("error reading config file: ", err)
+		logrus.Println("error reading config file: ", err)
 	}
 
 	if err := viper.UnmarshalKey("context", &ctx); err != nil {
-		fmt.Println("error unmarshalling config file: ", err)
+		logrus.Println("error unmarshalling config file: ", err)
 	}
 
 	return ctx

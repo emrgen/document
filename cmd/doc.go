@@ -173,23 +173,15 @@ func getDocCmd() *cobra.Command {
 				return
 			}
 
-			table := tablewriter.NewWriter(os.Stdout)
-			table.SetHeader([]string{"ID", "Version", "Children", "Links"})
-			var meta map[string]interface{}
-			err = json.Unmarshal([]byte(res.Document.Meta), &meta)
-			if err != nil {
-				logrus.Error(err)
-				return
-			}
-
 			doc := res.Document
 
-			logrus.Infof("document: %s", doc.Links)
-
+			table := tablewriter.NewWriter(os.Stdout)
+			table.SetHeader([]string{"ID", "Version", "Children", "Links"})
 			table.Append([]string{doc.Id, strconv.FormatInt(doc.Version, 10), strconv.Itoa(len(doc.Children)), strconv.Itoa(len(doc.Links))})
 			table.Render()
-			printField("Title", getTitle(res.Document.Meta))
-			printField("Content", res.Document.Content)
+
+			printField("Title", getTitle(doc.Meta))
+			printField("Content", doc.Content)
 		},
 	}
 

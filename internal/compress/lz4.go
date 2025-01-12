@@ -1,8 +1,8 @@
 package compress
 
 import (
-	"fmt"
 	lz4 "github.com/pierrec/lz4/v4"
+	"github.com/sirupsen/logrus"
 )
 
 type Lz4Compress struct{}
@@ -20,7 +20,7 @@ func (l Lz4Compress) Encode(data []byte) ([]byte, error) {
 		return nil, err
 	}
 	if n >= len(data) {
-		fmt.Printf("`%s` is not compressible", data)
+		logrus.Printf("`%s` is not compressible", data)
 	}
 	buf = buf[:n] // compressed data
 
@@ -31,7 +31,7 @@ func (l Lz4Compress) Decode(data []byte) ([]byte, error) {
 	out := make([]byte, 10*len(data))
 	n, err := lz4.UncompressBlock(data, out)
 	if err != nil {
-		fmt.Println(err)
+		logrus.Println(err)
 	}
 	out = out[:n] // uncompressed data
 

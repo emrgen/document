@@ -7,6 +7,7 @@ import (
 	"io"
 )
 
+// Client is the interface for the document service client
 type Client interface {
 	io.Closer
 	v1.DocumentServiceClient
@@ -21,6 +22,7 @@ type client struct {
 	v1.DocumentBackupServiceClient
 }
 
+// NewClient creates a new document service client
 func NewClient(port string) (Client, error) {
 	conn, err := grpc.NewClient(":4020", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
