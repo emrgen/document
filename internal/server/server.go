@@ -8,6 +8,7 @@ import (
 	"github.com/emrgen/document/internal/cache"
 	"github.com/emrgen/document/internal/compress"
 	"github.com/emrgen/document/internal/config"
+	"github.com/emrgen/document/internal/job"
 	"github.com/emrgen/document/internal/service"
 	"github.com/emrgen/document/internal/store"
 	"github.com/gobuffalo/packr"
@@ -169,6 +170,10 @@ func Start(grpcPort, httpPort string) error {
 
 	// make sure to wait for the servers to stop before exiting
 	var wg sync.WaitGroup
+
+	// Start the backup cleaner
+	cleaner := job.NewBackupCleaner(docStore)
+	go cleaner.Run()
 
 	wg.Add(1)
 	// Start the grpc server

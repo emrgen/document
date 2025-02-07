@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	goset "github.com/deckarep/golang-set/v2"
 	"github.com/emrgen/document/internal/model"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -23,9 +24,24 @@ type GormStore struct {
 	db *gorm.DB
 }
 
-func (g *GormStore) GetDocumentByUpdatedTime(updated time.Time) ([]*model.DocumentBackup, error) {
+func (g *GormStore) DeleteDocumentBackups(ctx context.Context, backups map[string]goset.Set[int64]) error {
+	var groupErr error
+
+	for id, versions := range backups {
+		versionList := versions.ToSlice()
+		err := g.db.Unscoped().Where("id = ? AND version IN (?)", id, versionList).Delete(&model.DocumentBackup{}).Error
+		if err != nil {
+			groupErr = errors.Join(groupErr, err)
+			continue
+		}
+	}
+
+	return groupErr
+}
+
+func (g *GormStore) GetDocumentByUpdatedTime(start time.Time, end time.Time) ([]*model.DocumentBackup, error) {
 	var docs []*model.DocumentBackup
-	err := g.db.Where("updated_at > ?", updated).Find(&docs).Error
+	err := g.db.Where("updated_at > ? AND updated_at < ?", start, end).Order("updated_at asc").Find(&docs).Error
 	return docs, err
 }
 

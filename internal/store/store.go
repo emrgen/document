@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	goset "github.com/deckarep/golang-set/v2"
 	"github.com/emrgen/document/internal/model"
 	"github.com/google/uuid"
 	"time"
@@ -75,7 +76,9 @@ type DocumentBackupStore interface {
 	// RestoreDocument restores a document from a backup.
 	RestoreDocument(ctx context.Context, doc *model.Document, backup *model.DocumentBackup) error
 	// GetDocumentByUpdatedTime retrieves a list of documents by updated time.
-	GetDocumentByUpdatedTime(updated time.Time) ([]*model.DocumentBackup, error)
+	GetDocumentByUpdatedTime(start time.Time, end time.Time) ([]*model.DocumentBackup, error)
+	// DeleteDocumentBackups deletes document backups by document ID and versions.
+	DeleteDocumentBackups(ctx context.Context, backups map[string]goset.Set[int64]) error
 }
 
 type PublishedDocumentStore interface {

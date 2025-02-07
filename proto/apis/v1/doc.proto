@@ -355,7 +355,6 @@ service PublishedDocumentService {
 }
 
 message DocumentBackup {
-  string id = 1 [(validate.rules).string.uuid = true];
   Document document = 2;
 }
 

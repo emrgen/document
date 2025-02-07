@@ -10,7 +10,6 @@ type DocumentBackup struct {
 	gorm.Model
 	ID          string `gorm:"primaryKey:uuid;"`
 	Version     int64  `gorm:"primaryKey;not null"`
-	DocumentID  string `gorm:"not null"`
 	Meta        string
 	Links       string
 	Content     string

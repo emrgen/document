@@ -41,9 +41,8 @@ func (d *DocumentBackupService) ListDocumentBackups(ctx context.Context, request
 	}
 	for _, backup := range backups {
 		resp.Backups = append(resp.Backups, &v1.DocumentBackup{
-			Id: backup.ID,
 			Document: &v1.Document{
-				Id:        backup.DocumentID,
+				Id:        backup.ID,
 				Content:   backup.Content,
 				Version:   backup.Version,
 				CreatedAt: timestamppb.New(backup.CreatedAt),
@@ -92,7 +91,7 @@ func (d *DocumentBackupService) GetDocumentBackup(ctx context.Context, request *
 	childrenData, err := parseChildren(backup.Children)
 
 	logrus.Infof("backup: %v", backup.Content)
-	
+
 	return &v1.GetDocumentBackupResponse{
 		Document: &v1.Document{
 			Id:        backup.ID,
