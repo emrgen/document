@@ -3,9 +3,9 @@ package store
 import (
 	"context"
 	"errors"
-	"github.com/google/uuid"
-
 	"github.com/emrgen/document/internal/model"
+	"github.com/google/uuid"
+	"time"
 )
 
 var (
@@ -74,6 +74,8 @@ type DocumentBackupStore interface {
 	DeleteDocumentBackup(ctx context.Context, docID uuid.UUID, version int64) error
 	// RestoreDocument restores a document from a backup.
 	RestoreDocument(ctx context.Context, doc *model.Document, backup *model.DocumentBackup) error
+	// GetDocumentByUpdatedTime retrieves a list of documents by updated time.
+	GetDocumentByUpdatedTime(updated time.Time) ([]*model.DocumentBackup, error)
 }
 
 type PublishedDocumentStore interface {

@@ -8,6 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"time"
 )
 
 func NewGormStore(db *gorm.DB) *GormStore {
@@ -20,6 +21,12 @@ var _ Store = (*GormStore)(nil)
 
 type GormStore struct {
 	db *gorm.DB
+}
+
+func (g *GormStore) GetDocumentByUpdatedTime(updated time.Time) ([]*model.DocumentBackup, error) {
+	var docs []*model.DocumentBackup
+	err := g.db.Where("updated_at > ?", updated).Find(&docs).Error
+	return docs, err
 }
 
 func (g *GormStore) GetPublishedDocumentMetaByVersion(ctx context.Context, id uuid.UUID, version string) (*model.PublishedDocumentMeta, error) {
