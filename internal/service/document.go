@@ -343,62 +343,44 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 		}
 
 		// if the version clocks matches, update the document
+		// if the request contains a JSONDIFF, apply the patch
 		if versionMatch && request.GetKind() == v1.UpdateKind_JSONPATCH {
+			if overwrite {
+				return errors.New("overwrite not allowed for JSONDIFF")
+			}
+
+			// overwrite the meta
 			if request.Meta != nil {
 				metaContent, err := d.compress.Encode([]byte(request.GetMeta()))
 				if err != nil {
 					return err
 				}
-
-				jsonDoc := blocktree.NewJsonDoc(metaContent)
-				patch := blocktree.JsonPatch(request.GetMeta())
-
-				err = jsonDoc.Apply(patch)
-				if err != nil {
-					return err
-				}
-
-				data, err := d.compress.Encode([]byte(jsonDoc.String()))
-				if err != nil {
-					return err
-				}
-				doc.Meta = string(data)
+				doc.Meta = string(metaContent)
 			}
 
+			// overwrite the links
 			if request.Links != nil {
 				links := request.GetLinks()
-				patch, err := json.Marshal(links)
+				linksData, err := json.Marshal(links)
 				if err != nil {
 					return err
 				}
-				linksContent, err := d.compress.Encode(patch)
+				linksContent, err := d.compress.Encode(linksData)
 				if err != nil {
 					return err
 				}
-
-				jsonDoc := blocktree.NewJsonDoc(linksContent)
-
-				err = jsonDoc.Apply(patch)
-				if err != nil {
-					return err
-				}
-
-				data, err := d.compress.Encode([]byte(jsonDoc.String()))
-				if err != nil {
-					return err
-				}
-				doc.Links = string(data)
+				doc.Links = string(linksContent)
 			}
 
+			// patch the content
 			if request.Content != nil {
 				contentData, err := d.compress.Encode([]byte(request.GetContent()))
 				if err != nil {
 					return err
 				}
 
-				// merge the content data
 				jsonDoc := blocktree.NewJsonDoc(contentData)
-				patch := blocktree.JsonPatch(request.GetMeta())
+				patch := blocktree.JsonPatch(request.GetContent())
 
 				err = jsonDoc.Apply(patch)
 				if err != nil {
@@ -411,11 +393,9 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 				}
 
 				doc.Content = string(data)
-
 			}
-			// TODO: if the parts are too large, we need to merge them
 			doc.Version = doc.Version + 1
-			logrus.Infof("updating document id: %v, version: %v", doc.ID, doc.Version)
+			logrus.Infof("updating document id with patch: %v, version: %v", doc.ID, doc.Version)
 			err = tx.UpdateDocument(ctx, doc)
 			if err != nil {
 				return err
