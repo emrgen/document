@@ -24,6 +24,45 @@ type GormStore struct {
 	db *gorm.DB
 }
 
+func (g *GormStore) ListPublishedDocumentProjectIDs(ctx context.Context, docIDs []*model.IDVersion) (map[uuid.UUID]uuid.UUID, error) {
+	var docs []*model.PublishedDocument
+	var query [][]interface{}
+	for _, idVersion := range docIDs {
+		query = append(query, []interface{}{idVersion.ID, idVersion.Version})
+	}
+
+	err := g.db.Where("id = ? AND version = ?", query).Find(&docs).Error
+	if err != nil {
+		return nil, err
+	}
+
+	projects := make(map[uuid.UUID]uuid.UUID)
+	for _, doc := range docs {
+		projects[uuid.MustParse(doc.ID)] = uuid.MustParse(doc.ProjectID)
+	}
+
+	return projects, nil
+}
+
+func (g *GormStore) ListDocumentProjectIDs(ctx context.Context, docIDs []uuid.UUID) (map[uuid.UUID]uuid.UUID, error) {
+	var docs []*model.Document
+	err := g.db.Where("id in (?)", docIDs).Find(&docs).Error
+	if err != nil {
+		return nil, err
+	}
+
+	if len(docs) != len(docIDs) {
+		return nil, errors.New("not all documents found")
+	}
+
+	projects := make(map[uuid.UUID]uuid.UUID)
+	for _, doc := range docs {
+		projects[uuid.MustParse(doc.ID)] = uuid.MustParse(doc.ProjectID)
+	}
+
+	return projects, nil
+}
+
 func (g *GormStore) ListPublishedDocumentsByIdVersion(ctx context.Context, projectID uuid.UUID, idVersions []*model.IDVersion) ([]*model.PublishedDocument, error) {
 	var docs []*model.PublishedDocument
 	var query [][]interface{}
@@ -31,7 +70,7 @@ func (g *GormStore) ListPublishedDocumentsByIdVersion(ctx context.Context, proje
 		query = append(query, []interface{}{projectID.String(), idVersion.ID, idVersion.Version})
 	}
 
-	err := g.db.Where("project_id = ? AND id = ? AND version = ?", query).Find(&docs).Error
+	err := g.db.Where("(project_id, id, version) IN ?", query).Find(&docs).Error
 
 	return docs, err
 }
@@ -72,12 +111,36 @@ func (g *GormStore) ListDocumentBackupVersions(ctx context.Context, id uuid.UUID
 	return docs, err
 }
 
+// ExistsDocuments checks if a document exists by ID. It returns true if all documents exist otherwise false.
 func (g *GormStore) ExistsDocuments(ctx context.Context, docs []*model.Document) (bool, error) {
-	return false, nil
+	var query []string
+	for _, doc := range docs {
+		query = append(query, doc.ID)
+	}
+
+	var count int64
+	err := g.db.Model(&model.Document{}).Where("id in (?)", query).Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
 }
 
+// ExistsPublishedDocuments checks if a published document exists by ID@Version. It returns true if all documents exist otherwise false.
 func (g *GormStore) ExistsPublishedDocuments(ctx context.Context, docs []*model.PublishedDocument) (bool, error) {
-	return false, nil
+	var query [][]interface{}
+	for _, doc := range docs {
+		query = append(query, []interface{}{doc.ProjectID, doc.ID, doc.Version})
+	}
+
+	var count int64
+	err := g.db.Model(&model.PublishedDocument{}).Where("(project_id, id, version) IN ?", query).Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
 }
 
 func (g *GormStore) CreatePublishedLinks(ctx context.Context, links []*model.PublishedLink) error {

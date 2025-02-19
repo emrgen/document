@@ -107,6 +107,7 @@ func TestDocumentService_UpdateDocument(t *testing.T) {
 	projectID := uuid.New().String()
 	doc1ID := uuid.New().String()
 	doc2ID := uuid.New().String()
+	//doc3ID := uuid.New().String()
 
 	tests := []struct {
 		Input   Document
@@ -125,7 +126,7 @@ func TestDocumentService_UpdateDocument(t *testing.T) {
 				docID:     doc1ID,
 				Meta:      "{}",
 				Content:   "content",
-				Links:     map[string]string{"link@latest": "link"},
+				Links:     map[string]string{},
 				Version:   1,
 			}},
 			Output: Document{
@@ -134,7 +135,7 @@ func TestDocumentService_UpdateDocument(t *testing.T) {
 				docID:     doc1ID,
 				Meta:      "{}",
 				Content:   "content",
-				Links:     map[string]string{"link@latest": "link"},
+				Links:     map[string]string{},
 				Version:   1,
 			},
 		},
@@ -150,7 +151,7 @@ func TestDocumentService_UpdateDocument(t *testing.T) {
 				docID:     doc2ID,
 				Meta:      "{}",
 				Content:   "content",
-				Links:     map[string]string{"link@latest": "link"},
+				Links:     map[string]string{doc1ID + "@latest": "link"},
 				Version:   1,
 			}, {
 				name:      "Test UpdatedDocument 2",
@@ -158,7 +159,7 @@ func TestDocumentService_UpdateDocument(t *testing.T) {
 				docID:     doc2ID,
 				Meta:      "{test}",
 				Content:   "content",
-				Links:     map[string]string{"link@latest": "link", "link2@latest": "link2"},
+				Links:     map[string]string{doc1ID + "@latest": "link"},
 				Version:   2,
 			}},
 			Output: Document{
@@ -167,7 +168,7 @@ func TestDocumentService_UpdateDocument(t *testing.T) {
 				docID:     doc2ID,
 				Meta:      "{test}",
 				Content:   "content",
-				Links:     map[string]string{"link@latest": "link", "link2@latest": "link2"},
+				Links:     map[string]string{doc1ID + "@latest": "link"},
 				Version:   2,
 			},
 		},

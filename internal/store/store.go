@@ -43,7 +43,6 @@ type DocumentStore interface {
 	GetDocument(ctx context.Context, id uuid.UUID) (*model.Document, error)
 	// ListDocuments retrieves a list of documents by project ID.
 	ListDocuments(ctx context.Context, projectID uuid.UUID) ([]*model.Document, int64, error)
-
 	// ListDocumentsFromIDs retrieves a list of documents by IDs.
 	ListDocumentsFromIDs(ctx context.Context, ids []uuid.UUID) ([]*model.Document, error)
 	// UpdateDocument updates a document.
@@ -60,6 +59,8 @@ type DocumentStore interface {
 	DeleteBacklinks(ctx context.Context, links []*model.Link) error
 	//	ListBacklinks retrieves a list of backlinks by target ID.
 	ListBacklinks(ctx context.Context, targetID uuid.UUID) ([]*model.Link, error)
+	// ListDocumentProjectIDs retrieves a list of project IDs by document ID.
+	ListDocumentProjectIDs(ctx context.Context, docIDs []uuid.UUID) (map[uuid.UUID]uuid.UUID, error)
 }
 
 type DocumentBackupStore interface {
@@ -104,4 +105,6 @@ type PublishedDocumentStore interface {
 	CreatePublishedLinks(ctx context.Context, links []*model.PublishedLink) error
 	// ListPublishedBacklinks retrieves a list of backlinks by source ID.
 	ListPublishedBacklinks(ctx context.Context, targetID uuid.UUID, targetVersion string) ([]*model.PublishedLink, error)
+	// ListPublishedDocumentProjectIDs retrieves a list of project IDs by document ID.
+	ListPublishedDocumentProjectIDs(ctx context.Context, docs []*model.IDVersion) (map[uuid.UUID]uuid.UUID, error)
 }

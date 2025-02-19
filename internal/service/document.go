@@ -447,17 +447,53 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 
 				// check if the target unpublished documents exist, if not return an error
 				if len(unPublishedDocLinks) != 0 {
+					var ids []uuid.UUID
+					for _, doc := range unPublishedDocLinks {
+						ids = append(ids, uuid.MustParse(doc.ID))
+					}
+
+					projectIDs, err := tx.ListDocumentProjectIDs(ctx, ids)
+					if err != nil {
+						return err
+					}
+
+					for _, link := range unPublishedDocLinks {
+						if projectID, ok := projectIDs[uuid.MustParse(link.ID)]; ok {
+							link.ProjectID = projectID.String()
+						} else {
+							return errors.New("target documents do not exist")
+						}
+					}
+
 					problem, err := tx.ExistsDocuments(ctx, unPublishedDocLinks)
 					if err != nil {
 						return err
 					}
 					if problem {
-						return errors.New("target documents do not exist")
+						return errors.New("linked documents do not exist")
 					}
 				}
 
 				// check if the target published documents exist, if not return an error
 				if len(publishedDocLinks) != 0 {
+					var ids []uuid.UUID
+					for _, doc := range publishedDocLinks {
+						ids = append(ids, uuid.MustParse(doc.ID))
+					}
+
+					projectIDs, err := tx.ListDocumentProjectIDs(ctx, ids)
+					if err != nil {
+						return err
+					}
+
+					for _, link := range publishedDocLinks {
+						if projectID, ok := projectIDs[uuid.MustParse(link.ID)]; ok {
+							link.ProjectID = projectID.String()
+						} else {
+							return errors.New("linked published documents do not exist")
+						}
+					}
+
 					problem, err := tx.ExistsPublishedDocuments(ctx, publishedDocLinks)
 					if err != nil {
 						return err
