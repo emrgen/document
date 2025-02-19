@@ -206,6 +206,61 @@ func (p *PublishedDocumentService) ListPublishedDocuments(ctx context.Context, r
 	if err != nil {
 		return nil, err
 	}
+
+	// get full document when idVersions are provided
+	if len(request.GetIdVersions()) > 0 {
+		var idVersions []*model.IDVersion
+		for _, idVersion := range request.GetIdVersions() {
+			idVersions = append(idVersions, &model.IDVersion{
+				ID:      idVersion.GetId(),
+				Version: idVersion.GetVersion(),
+			})
+		}
+
+		docs, err := p.store.ListPublishedDocumentsByIdVersion(ctx, projectID, idVersions)
+		if err != nil {
+			return nil, err
+		}
+
+		var documents []*v1.PublishedDocument
+		for _, doc := range docs {
+			metaData, err := p.compress.Decode([]byte(doc.Meta))
+			if err != nil {
+				return nil, err
+			}
+
+			linksData, err := p.compress.Decode([]byte(doc.Links))
+			if err != nil {
+				return nil, err
+			}
+			childrenData, err := p.compress.Decode([]byte(doc.Children))
+			if err != nil {
+				return nil, err
+			}
+
+			links, err := parseLinks(string(linksData))
+			if err != nil {
+				return nil, err
+			}
+
+			children, err := parseChildren(string(childrenData))
+			if err != nil {
+				return nil, err
+			}
+
+			content, err := p.compress.Decode([]byte(doc.Content))
+
+			documents = append(documents, &v1.PublishedDocument{
+				Id:       doc.ID,
+				Meta:     string(metaData),
+				Links:    links,
+				Children: children,
+				Version:  doc.Version,
+				Content:  string(content),
+			})
+		}
+	}
+
 	docs, err := p.store.ListLatestPublishedDocuments(ctx, projectID)
 	if err != nil {
 		return nil, err

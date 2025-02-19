@@ -88,6 +88,8 @@ type PublishedDocumentStore interface {
 	GetPublishedDocumentByVersion(ctx context.Context, id uuid.UUID, version string) (*model.PublishedDocument, error)
 	// ListLatestPublishedDocuments retrieves a list of published documents by project ID.
 	ListLatestPublishedDocuments(ctx context.Context, projectID uuid.UUID) ([]*model.LatestPublishedDocumentMeta, error)
+	// ListPublishedDocumentsByIdVersion retrieves a list of published documents by id@version list.
+	ListPublishedDocumentsByIdVersion(ctx context.Context, projectID uuid.UUID, idVersions []*model.IDVersion) ([]*model.PublishedDocument, error)
 	// UnpublishDocument unpublishes a document.
 	UnpublishDocument(ctx context.Context, id uuid.UUID, version string) error
 	// GetLatestPublishedDocument retrieves the latest published document by ID.

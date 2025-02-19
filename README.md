@@ -8,6 +8,7 @@ document is a document store for small projects. It is designed to be simple and
 - [x] Update document
 - [x] Delete document
 - [x] Get document
+- [x] Get document by ids(full docs)
 - [x] List documents
 - [ ] Search documents
 - [x] Document versioning
@@ -16,11 +17,11 @@ document is a document store for small projects. It is designed to be simple and
 - [x] Document backup
 - [ ] Document restore
 - [ ] Document export
-- [ ] Document backlinks
-- [ ] Document links
+- [x] Document backlinks
+- [x] Document links
 - [ ] Document auto backup to S3
 - [ ] Document auto load from S3
-- [ ] Create a job to clean up old documents backups, (keep last 30 days)
+- [x] Create a job to clean up old documents backups, (keep backups at 10min interval)
 
 ## Installation
 

@@ -269,10 +269,16 @@ message GetPublishedDocumentMetaResponse {
   PublishedDocument document = 1;
 }
 
+message DocumentVersionId {
+  string id = 1 [(validate.rules).string.uuid = true];
+  string version = 2;
+}
+
 message ListPublishedDocumentsRequest {
   string project_id = 1 [(validate.rules).string.uuid = true];
   int32 page = 5;
   int32 per_page = 6;
+  repeated DocumentVersionId id_versions = 7;
 }
 
 message ListPublishedDocumentsResponse {

@@ -24,6 +24,18 @@ type GormStore struct {
 	db *gorm.DB
 }
 
+func (g *GormStore) ListPublishedDocumentsByIdVersion(ctx context.Context, projectID uuid.UUID, idVersions []*model.IDVersion) ([]*model.PublishedDocument, error) {
+	var docs []*model.PublishedDocument
+	var query [][]interface{}
+	for _, idVersion := range idVersions {
+		query = append(query, []interface{}{projectID.String(), idVersion.ID, idVersion.Version})
+	}
+
+	err := g.db.Where("project_id = ? AND id = ? AND version = ?", query).Find(&docs).Error
+
+	return docs, err
+}
+
 func (g *GormStore) DeleteDocumentBackups(ctx context.Context, backups map[string]goset.Set[int64]) error {
 	var groupErr error
 

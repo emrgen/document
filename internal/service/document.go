@@ -240,7 +240,7 @@ func (d DocumentService) ListDocuments(ctx context.Context, request *v1.ListDocu
 		return nil, err
 	}
 
-	// List documents from ids
+	// List documents from ids (return full documents)
 	if len(request.GetDocumentIds()) > 0 {
 		var documents []*model.Document
 		var ids []uuid.UUID
@@ -551,7 +551,7 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 				return err
 			}
 
-			err := updateLinks()
+			err = updateLinks()
 			if err != nil {
 				return err
 			}
