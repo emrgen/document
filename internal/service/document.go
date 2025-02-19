@@ -342,73 +342,43 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 			return status.New(codes.FailedPrecondition, fmt.Sprintf("current version: %d, expected version %d, provider version: %d, ", doc.Version, doc.Version+1, request.GetVersion())).Err()
 		}
 
-		// if the version clocks matches, update the document
-		// if the request contains a JSONDIFF, apply the patch
-		if versionMatch && request.GetKind() == v1.UpdateKind_JSONPATCH {
-			if overwrite {
-				return errors.New("overwrite not allowed for JSONDIFF")
-			}
-
-			// overwrite the meta
-			if request.Meta != nil {
-				metaContent, err := d.compress.Encode([]byte(request.GetMeta()))
-				if err != nil {
-					return err
-				}
-				doc.Meta = string(metaContent)
-			}
-
-			// overwrite the links
-			if request.Links != nil {
-				links := request.GetLinks()
-				linksData, err := json.Marshal(links)
-				if err != nil {
-					return err
-				}
-				linksContent, err := d.compress.Encode(linksData)
-				if err != nil {
-					return err
-				}
-				doc.Links = string(linksContent)
-			}
-
-			// patch the content
-			if request.Content != nil {
-				contentData, err := d.compress.Encode([]byte(request.GetContent()))
-				if err != nil {
-					return err
-				}
-
-				jsonDoc := blocktree.NewJsonDoc(contentData)
-				patch := blocktree.JsonPatch(request.GetContent())
-
-				err = jsonDoc.Apply(patch)
-				if err != nil {
-					return err
-				}
-
-				data, err := d.compress.Encode([]byte(jsonDoc.String()))
-				if err != nil {
-					return err
-				}
-
-				doc.Content = string(data)
-			}
-			doc.Version = doc.Version + 1
-			logrus.Infof("updating document id with patch: %v, version: %v", doc.ID, doc.Version)
-			err = tx.UpdateDocument(ctx, doc)
+		// compress the meta
+		if request.Meta != nil {
+			metaContent, err := d.compress.Encode([]byte(request.GetMeta()))
 			if err != nil {
 				return err
 			}
+			doc.Meta = string(metaContent)
 		}
 
-		// explicitly overwrite the document
-		// or the version matches and the kind is not JSONDIFF as JSONDIFF is handled above
-		if overwrite || versionMatch && request.GetKind() != v1.UpdateKind_JSONPATCH {
-			// TODO: check if document hash is the same
+		// overwrite the links
+		if request.Links != nil {
+			links := request.GetLinks()
+			linksData, err := json.Marshal(links)
+			if err != nil {
+				return err
+			}
+			linksContent, err := d.compress.Encode(linksData)
+			if err != nil {
+				return err
+			}
+			doc.Links = string(linksContent)
+		}
 
-			// Create a backup of the document
-			logrus.Infof("creating backup for document id: %v, version: %v", doc.ID, doc.Version)
+		// overwrite the children
+		if request.Children != nil {
+			children, err := json.Marshal(request.GetChildren())
+			if err != nil {
+				return err
+			}
+			childrenData, err := d.compress.Encode(children)
+			if err != nil {
+				return err
+			}
+			doc.Children = string(childrenData)
+		}
+
+		createBackup := func() error {
 			err = tx.CreateDocumentBackup(ctx, &model.DocumentBackup{
 				ID:      doc.ID,
 				Version: doc.Version,
@@ -416,62 +386,11 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 				Content: doc.Content,
 				Links:   doc.Links,
 			})
-			if err != nil {
-				return err
-			}
 
-			if request.Meta != nil {
-				metaContent, err := d.compress.Encode([]byte(request.GetMeta()))
-				if err != nil {
-					return err
-				}
-				doc.Meta = string(metaContent)
-			}
+			return err
+		}
 
-			if request.Links != nil {
-				links := request.GetLinks()
-				linksData, err := json.Marshal(links)
-				if err != nil {
-					return err
-				}
-				linksContent, err := d.compress.Encode(linksData)
-				if err != nil {
-					return err
-				}
-				doc.Links = string(linksContent)
-			}
-
-			if request.Children != nil {
-				children, err := json.Marshal(request.GetChildren())
-				if err != nil {
-					return err
-				}
-				childrenData, err := d.compress.Encode(children)
-				if err != nil {
-					return err
-				}
-				doc.Children = string(childrenData)
-			}
-
-			if request.Content != nil {
-				contentData, err := d.compress.Encode([]byte(request.GetContent()))
-				if err != nil {
-					return err
-				}
-				doc.Content = string(contentData)
-			}
-			doc.Version = doc.Version + 1
-
-			if clone.Meta == doc.Meta && clone.Content == doc.Content && clone.Links == doc.Links && clone.Children == doc.Children {
-				return errors.New("document is not changed, skipping update")
-			}
-
-			logrus.Infof("updating document id: %v, version: %v", doc.ID, doc.Version)
-			err = tx.UpdateDocument(ctx, doc)
-			if err != nil {
-				return err
-			}
-
+		updateLinks := func() error {
 			// check if the links are changed and update the backlinks
 			if clone.Links != doc.Links {
 				logrus.Infof("old links: %v, new links: %v", clone.Links, request.GetLinks())
@@ -586,6 +505,92 @@ func (d DocumentService) UpdateDocument(ctx context.Context, request *v1.UpdateD
 						return err
 					}
 				}
+			}
+
+			return nil
+		}
+
+		// if the version clocks matches, update the document
+		// if the request contains a JSONDIFF, apply the patch
+		if versionMatch && request.GetKind() == v1.UpdateKind_JSONPATCH {
+			if overwrite {
+				return errors.New("overwrite not allowed for JSONDIFF")
+			}
+
+			err := createBackup()
+			if err != nil {
+				return err
+			}
+
+			// patch the content
+			if request.Content != nil {
+				contentData, err := d.compress.Encode([]byte(request.GetContent()))
+				if err != nil {
+					return err
+				}
+
+				jsonDoc := blocktree.NewJsonDoc(contentData)
+				patch := blocktree.JsonPatch(request.GetContent())
+
+				err = jsonDoc.Apply(patch)
+				if err != nil {
+					return err
+				}
+
+				data, err := d.compress.Encode([]byte(jsonDoc.String()))
+				if err != nil {
+					return err
+				}
+
+				doc.Content = string(data)
+			}
+			doc.Version = doc.Version + 1
+			logrus.Infof("updating document id with patch: %v, version: %v", doc.ID, doc.Version)
+			err = tx.UpdateDocument(ctx, doc)
+			if err != nil {
+				return err
+			}
+
+			err := updateLinks()
+			if err != nil {
+				return err
+			}
+		}
+
+		// explicitly overwrite the document
+		// or the version matches and the kind is not JSONDIFF as JSONDIFF is handled above
+		if overwrite || versionMatch && request.GetKind() != v1.UpdateKind_JSONPATCH {
+			// TODO: check if document hash is the same
+
+			// Create a backup of the document
+			logrus.Infof("creating backup for document id: %v, version: %v", doc.ID, doc.Version)
+			err := createBackup()
+			if err != nil {
+				return err
+			}
+
+			if request.Content != nil {
+				contentData, err := d.compress.Encode([]byte(request.GetContent()))
+				if err != nil {
+					return err
+				}
+				doc.Content = string(contentData)
+			}
+			doc.Version = doc.Version + 1
+
+			if clone.Meta == doc.Meta && clone.Content == doc.Content && clone.Links == doc.Links && clone.Children == doc.Children {
+				return errors.New("document is not changed, skipping update")
+			}
+
+			logrus.Infof("updating document id: %v, version: %v", doc.ID, doc.Version)
+			err = tx.UpdateDocument(ctx, doc)
+			if err != nil {
+				return err
+			}
+
+			err = updateLinks()
+			if err != nil {
+				return err
 			}
 		}
 
