@@ -45,6 +45,7 @@ type DocumentService struct {
 }
 
 // CreateDocument creates a new document.
+// it compresses the meta and content before storing it in the database.
 func (d DocumentService) CreateDocument(ctx context.Context, request *v1.CreateDocumentRequest) (*v1.CreateDocumentResponse, error) {
 	var err error
 
@@ -90,12 +91,14 @@ func (d DocumentService) CreateDocument(ctx context.Context, request *v1.CreateD
 		Version:   0,
 	}
 
+	// if the document id is provided, use it
 	if request.DocumentId != nil {
 		doc.ID = request.GetDocumentId()
 	} else {
 		doc.ID = uuid.New().String()
 	}
 
+	// Create the document
 	err = d.store.CreateDocument(ctx, doc)
 	if err != nil {
 		return nil, err
@@ -111,6 +114,7 @@ func (d DocumentService) CreateDocument(ctx context.Context, request *v1.CreateD
 	}, nil
 }
 
+// ListDocumentVersions lists document versions.
 func (d DocumentService) ListDocumentVersions(ctx context.Context, request *v1.ListDocumentVersionsRequest) (*v1.ListDocumentVersionsResponse, error) {
 	docID, err := uuid.Parse(request.GetDocumentId())
 	if err != nil {
@@ -146,6 +150,7 @@ func (d DocumentService) ListDocumentVersions(ctx context.Context, request *v1.L
 	}, nil
 }
 
+// ListBacklinks lists backlinks.
 func (d DocumentService) ListBacklinks(ctx context.Context, request *v1.ListBacklinksRequest) (*v1.ListBacklinksResponse, error) {
 	docID, err := uuid.Parse(request.GetDocumentId())
 	if err != nil {
@@ -170,7 +175,7 @@ func (d DocumentService) ListBacklinks(ctx context.Context, request *v1.ListBack
 	}, nil
 }
 
-// GetDocument retrieves a document.
+// GetDocument retrieves a document by id and version.
 func (d DocumentService) GetDocument(ctx context.Context, request *v1.GetDocumentRequest) (*v1.GetDocumentResponse, error) {
 	// TODO: first look into cache
 	// doc, err := d.cache.Get(ctx, fmt.Sprintf("document:%s/version:%s", request.Id, request.Version))
@@ -232,7 +237,7 @@ func (d DocumentService) GetDocument(ctx context.Context, request *v1.GetDocumen
 	}, nil
 }
 
-// ListDocuments lists documents.
+// ListDocuments lists documents in a project.
 func (d DocumentService) ListDocuments(ctx context.Context, request *v1.ListDocumentsRequest) (*v1.ListDocumentsResponse, error) {
 	var err error
 	projectID, err := uuid.Parse(request.GetProjectId())

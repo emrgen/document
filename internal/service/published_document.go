@@ -32,6 +32,7 @@ type PublishedDocumentService struct {
 	v1.UnimplementedPublishedDocumentServiceServer
 }
 
+// GetPublishedDocumentMeta retrieves the meta information of a published document by ID.
 func (p *PublishedDocumentService) GetPublishedDocumentMeta(ctx context.Context, request *v1.GetPublishedDocumentMetaRequest) (*v1.GetPublishedDocumentMetaResponse, error) {
 	docID, err := uuid.Parse(request.GetDocumentId())
 	if err != nil {
@@ -101,6 +102,7 @@ func (p *PublishedDocumentService) GetPublishedDocumentMeta(ctx context.Context,
 	}, nil
 }
 
+// ListPublishedBacklinks retrieves a list of published backlinks by document ID.
 func (p *PublishedDocumentService) ListPublishedBacklinks(ctx context.Context, request *v1.ListPublishedBacklinksRequest) (*v1.ListPublishedBacklinksResponse, error) {
 	docID, err := uuid.Parse(request.GetDocumentId())
 	if err != nil {
