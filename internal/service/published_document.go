@@ -32,6 +32,26 @@ type PublishedDocumentService struct {
 	v1.UnimplementedPublishedDocumentServiceServer
 }
 
+func (p *PublishedDocumentService) GetPublishedDocumentTreeIndex(ctx context.Context, request *v1.GetPublishedDocumentTreeIndexRequest) (*v1.GetPublishedDocumentTreeIndexResponse, error) {
+	docID, err := uuid.Parse(request.GetRootDocumentId())
+	if err != nil {
+		return nil, err
+	}
+
+	version := request.GetVersion()
+
+	index, err := p.store.GetDocumentTreeIndex(ctx, docID, version)
+	if err != nil {
+		return nil, err
+	}
+
+	return &v1.GetPublishedDocumentTreeIndexResponse{
+		DocumentId: docID.String(),
+		Content:    index.Content,
+		Version:    index.Version,
+	}, nil
+}
+
 // GetPublishedDocumentMeta retrieves the meta information of a published document by ID.
 func (p *PublishedDocumentService) GetPublishedDocumentMeta(ctx context.Context, request *v1.GetPublishedDocumentMetaRequest) (*v1.GetPublishedDocumentMetaResponse, error) {
 	docID, err := uuid.Parse(request.GetDocumentId())

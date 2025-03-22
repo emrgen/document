@@ -20,7 +20,8 @@ This will create a new version of the document and all children documents. Other
 - [x] Get document
 - [x] Get document by ids(full docs)
 - [x] List documents
-- [ ] Get document index
+- [x] Save document tree index during document tree publish
+- [x] Get document index
 - [x] Document versioning
 - [x] Document history
 - [ ] Document tags

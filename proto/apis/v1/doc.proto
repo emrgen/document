@@ -315,6 +315,17 @@ message ListPublishedBacklinksResponse {
   int32 total = 2;
 }
 
+message GetPublishedDocumentTreeIndexRequest {
+  string root_document_id = 1 [(validate.rules).string.uuid = true];
+  string version = 2; // semver
+}
+
+message GetPublishedDocumentTreeIndexResponse {
+  string document_id = 1 [(validate.rules).string.uuid = true];
+  string version = 2; // semver
+  string content = 3;
+}
+
 service PublishedDocumentService {
   rpc GetPublishedDocument(GetPublishedDocumentRequest) returns (GetPublishedDocumentResponse) {
     option (google.api.http) = {get: "/v1/published/{id}/version/{version}"};
@@ -358,6 +369,16 @@ service PublishedDocumentService {
       summary: "List published backlinks"
       description: "List published backlinks"
       operation_id: "ListPublishedBacklinks"
+    };
+  }
+
+  //  rpc UpdateDocumentTreeIndex
+  rpc GetPublishedDocumentTreeIndex(GetPublishedDocumentTreeIndexRequest) returns (GetPublishedDocumentTreeIndexResponse) {
+    option (google.api.http) = {get: "/v1/published/{root_document_id}/tree"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get a document tree index"
+      description: "Get a document tree index"
+      operation_id: "GetDocumentTreeIndex"
     };
   }
 }
