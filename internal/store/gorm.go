@@ -24,6 +24,16 @@ type GormStore struct {
 	db *gorm.DB
 }
 
+func (g *GormStore) SaveDocumentTreeIndex(ctx context.Context, index *model.DocumentIndex) error {
+	return g.db.Save(index).Error
+}
+
+func (g *GormStore) GetDocumentTreeIndex(ctx context.Context, docID uuid.UUID, version string) (*model.DocumentIndex, error) {
+	var index model.DocumentIndex
+	err := g.db.Where("document_id = ? AND version = ?", docID, version).First(&index).Error
+	return &index, err
+}
+
 func (g *GormStore) ListPublishedDocumentProjectIDs(ctx context.Context, docIDs []*model.IDVersion) (map[uuid.UUID]uuid.UUID, error) {
 	var docs []*model.PublishedDocument
 	var query [][]interface{}

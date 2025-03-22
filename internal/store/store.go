@@ -28,10 +28,19 @@ var (
 
 type Store interface {
 	DocumentStore
+	DocumentIndexStore
 	DocumentBackupStore
 	PublishedDocumentStore
 	Transaction(ctx context.Context, f func(tx Store) error) error
 	Migrate() error
+}
+
+// DocumentIndexStore is the interface for document index store.
+type DocumentIndexStore interface {
+	// SaveDocumentTreeIndex saves a document index by ID and version.
+	SaveDocumentTreeIndex(ctx context.Context, index *model.DocumentIndex) error
+	// GetDocumentTreeIndex retrieves a document index by ID and version.
+	GetDocumentTreeIndex(ctx context.Context, docID uuid.UUID, version string) (*model.DocumentIndex, error)
 }
 
 type DocumentStore interface {

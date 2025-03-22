@@ -709,6 +709,8 @@ func (d DocumentService) PublishDocuments(ctx context.Context, request *v1.Publi
 
 	// Publish the document in a transaction
 	err := d.store.Transaction(ctx, func(tx store.Store) error {
+		var rootDocLatestVersion string
+		rootDocID := request.GetRootDocumentId()
 		for _, docID := range docIDs {
 			// Get the document from the database
 			doc, err := tx.GetDocument(ctx, docID)
@@ -736,24 +738,24 @@ func (d DocumentService) PublishDocuments(ctx context.Context, request *v1.Publi
 
 			// Create a new published document
 			if lastPublishedDoc == nil {
-				version, err := semver.NewVersion("0.0.1") // initial version
+				nextVersion, err := semver.NewVersion("0.0.1") // initial nextVersion
 				if err != nil {
 					return err
 				}
 
-				// if the version is provided, use it
+				// if the nextVersion is provided, use it
 				if request.GetVersion() != "" {
 					newVersion, err := semver.NewVersion(request.GetVersion())
 					if err != nil {
 						return err
 					}
-					version = newVersion
+					nextVersion = newVersion
 				}
 
 				latestDoc = &model.PublishedDocument{
 					ID:        doc.ID,
 					ProjectID: doc.ProjectID,
-					Version:   version.String(),
+					Version:   nextVersion.String(),
 					Meta:      doc.Meta,
 					Links:     doc.Links,
 					Content:   doc.Content,
@@ -763,30 +765,34 @@ func (d DocumentService) PublishDocuments(ctx context.Context, request *v1.Publi
 				err = updateLatestPublishedDocumentCache(ctx, d.cache, doc.ID, latestDoc)
 				if err != nil {
 					logrus.Errorf("error updating cache: %v", err)
+				}
+
+				if doc.ID == rootDocID {
+					rootDocLatestVersion = nextVersion.String()
 				}
 			} else {
 				// Update the published document
-				version, err := semver.NewVersion(lastPublishedDoc.Version)
+				nextVersion, err := semver.NewVersion(lastPublishedDoc.Version)
 				if err != nil {
 					return err
 				}
-				*version = version.IncPatch()
+				*nextVersion = nextVersion.IncPatch()
 
 				if request.GetVersion() != "" {
 					newVersion, err := semver.NewVersion(request.GetVersion())
 					if err != nil {
 						return err
 					}
-					if newVersion.LessThan(version) {
-						return fmt.Errorf("new version must be greater than current version")
+					if newVersion.LessThan(nextVersion) {
+						return fmt.Errorf("new nextVersion must be greater than current nextVersion")
 					}
 
-					version = newVersion
+					nextVersion = newVersion
 				}
 				latestDoc = &model.PublishedDocument{
 					ID:        doc.ID,
 					ProjectID: doc.ProjectID,
-					Version:   version.String(),
+					Version:   nextVersion.String(),
 					Meta:      doc.Meta,
 					Links:     doc.Links,
 					Content:   doc.Content,
@@ -796,6 +802,10 @@ func (d DocumentService) PublishDocuments(ctx context.Context, request *v1.Publi
 				err = updateLatestPublishedDocumentCache(ctx, d.cache, doc.ID, latestDoc)
 				if err != nil {
 					logrus.Errorf("error updating cache: %v", err)
+				}
+
+				if doc.ID == rootDocID {
+					rootDocLatestVersion = nextVersion.String()
 				}
 			}
 
@@ -850,6 +860,20 @@ func (d DocumentService) PublishDocuments(ctx context.Context, request *v1.Publi
 				Id:      doc.ID,
 				Version: latestDoc.Version,
 			})
+		}
+
+		indexContent := request.GetIndex()
+		// save document tree indexContent
+		if indexContent != "" {
+			treeIndex := &model.DocumentIndex{
+				DocumentID: request.GetRootDocumentId(),
+				Content:    indexContent,
+				Version:    rootDocLatestVersion,
+			}
+			err := tx.SaveDocumentTreeIndex(ctx, treeIndex)
+			if err != nil {
+				return err
+			}
 		}
 
 		return nil

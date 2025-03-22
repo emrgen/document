@@ -128,9 +128,11 @@ message EraseDocumentResponse {
 }
 
 message PublishDocumentsRequest {
-  repeated string document_ids = 1;
-  optional string version = 2; // semver
-  bool force = 3;
+  string root_document_id = 1 [(validate.rules).string.uuid = true];
+  repeated string document_ids = 2;
+  optional string version = 3; // semver
+  bool force = 4;
+  string index = 5;
 }
 
 message PublishDocumentsResponse {
