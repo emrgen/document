@@ -19,3 +19,7 @@ type Document struct {
 	Kind          string  // markdown, html, json, etc.
 	Compression   string  // the compression algorithm used to compress the document content
 }
+
+func (d *Document) TableName() string {
+	return "documents"
+}

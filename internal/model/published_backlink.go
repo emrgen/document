@@ -10,3 +10,7 @@ type PublishedLink struct {
 	TargetID      string `gorm:"primaryKey;uuid;not null;index:idx_published_backlinks_target_id_version"`
 	TargetVersion string `gorm:"primaryKey;not null;default:current;index:idx_published_backlinks_target_id_version"`
 }
+
+func (b *PublishedLink) TableName() string {
+	return "published_links"
+}

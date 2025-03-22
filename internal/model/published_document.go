@@ -2,6 +2,8 @@ package model
 
 import "gorm.io/gorm"
 
+// LatestPublishedDocument represents the latest published document in a project
+// Version is the semantic versioning of the latest published document
 type LatestPublishedDocument struct {
 	gorm.Model
 	ProjectID string `gorm:"uuid;primaryKey"`
@@ -76,6 +78,7 @@ type PublishedDocumentMeta struct {
 	Unpublished bool   `gorm:"default:false"`
 }
 
+// IDVersion represents the ID and Version of a document
 type IDVersion struct {
 	ID      string
 	Version string

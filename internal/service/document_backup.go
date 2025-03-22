@@ -53,11 +53,13 @@ func (d *DocumentBackupService) ListDocumentBackups(ctx context.Context, request
 	return &resp, nil
 }
 
+// CreateDocumentBackup creates a document backup for a document at a specific version, this will overwrite any existing backup for the same version
 func (d *DocumentBackupService) CreateDocumentBackup(ctx context.Context, request *v1.CreateDocumentBackupRequest) (*v1.CreateDocumentBackupResponse, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
+// GetDocumentBackup gets a document backup by id and lamport version
 func (d *DocumentBackupService) GetDocumentBackup(ctx context.Context, request *v1.GetDocumentBackupRequest) (*v1.GetDocumentBackupResponse, error) {
 	docID, err := uuid.Parse(request.GetDocumentId())
 	if err != nil {
@@ -105,11 +107,13 @@ func (d *DocumentBackupService) GetDocumentBackup(ctx context.Context, request *
 	}, nil
 }
 
+// DeleteDocumentBackup deletes a document backup, this is a soft delete and the backup will still be available for 30 days after deletion
 func (d *DocumentBackupService) DeleteDocumentBackup(ctx context.Context, request *v1.DeleteDocumentBackupRequest) (*v1.DeleteDocumentBackupResponse, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
+// RestoreDocumentBackup restores a document backup, overwriting the current document
 func (d *DocumentBackupService) RestoreDocumentBackup(ctx context.Context, request *v1.RestoreDocumentBackupRequest) (*v1.RestoreDocumentBackupResponse, error) {
 	//TODO implement me
 	panic("implement me")
