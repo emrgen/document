@@ -397,7 +397,7 @@ message GetDocumentBackupResponse {
 message DeleteDocumentBackupRequest {
   string project_id = 1 [(validate.rules).string.uuid = true];
   string document_id = 2 [(validate.rules).string.uuid = true];
-  string id = 3 [(validate.rules).string.uuid = true];
+  int64 version = 3;
 }
 
 message DeleteDocumentBackupResponse {
@@ -407,7 +407,7 @@ message DeleteDocumentBackupResponse {
 message RestoreDocumentBackupRequest {
   string project_id = 1 [(validate.rules).string.uuid = true];
   string document_id = 2 [(validate.rules).string.uuid = true];
-  string id = 3 [(validate.rules).string.uuid = true];
+  int64 version = 3;
 }
 
 message RestoreDocumentBackupResponse {
@@ -446,7 +446,7 @@ service DocumentBackupService {
   }
 
   rpc DeleteDocumentBackup(DeleteDocumentBackupRequest) returns (DeleteDocumentBackupResponse) {
-    option (google.api.http) = {delete: "/v1/documents/{document_id}/backups/{id}"};
+    option (google.api.http) = {delete: "/v1/documents/{document_id}/backups/{version}"};
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       summary: "Delete a document backup"
       description: "Delete a document backup"
@@ -456,7 +456,7 @@ service DocumentBackupService {
 
   rpc RestoreDocumentBackup(RestoreDocumentBackupRequest) returns (RestoreDocumentBackupResponse) {
     option (google.api.http) = {
-      post: "/v1/documents/{document_id}/backups/{id}/restore"
+      post: "/v1/documents/{document_id}/backups/{version}/restore"
       body: "*"
     };
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {

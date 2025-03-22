@@ -25,7 +25,7 @@ This will create a new version of the document and all children documents. Other
 - [x] Document history
 - [ ] Document tags
 - [x] Document backup
-- [ ] Document restore
+- [x] Document restore
 - [ ] Document export
 - [x] Document backlinks
 - [x] Document links
